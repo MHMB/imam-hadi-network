@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/client";
 
@@ -63,5 +63,29 @@ export function useIssues(params: Parameters<typeof api.issues>[0] = {}) {
   return useQuery({
     queryKey: ["issues", params],
     queryFn: () => api.issues(params),
+  });
+}
+
+/** Status-poll hook: refetches every 1.5s while the row is non-terminal. */
+export function useImportPolling(id: number | null | undefined) {
+  return useQuery({
+    queryKey: ["imports", id],
+    queryFn: () => api.import(id as number),
+    enabled: id != null,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === "success" || s === "failed" ? false : 1500;
+    },
+  });
+}
+
+/** Upload mutation: returns the rows the server queued / deduped. */
+export function useUploadImports() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (files: File[]) => api.uploadImports(files),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["imports"] });
+    },
   });
 }

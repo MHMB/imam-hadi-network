@@ -80,14 +80,51 @@ async def write_parse_result(
     )
     session.add(import_row)
     await session.flush()  # need import_row.id for FK on loans + issues
+    await _apply_parse_result(session, import_row, result)
+    await session.commit()
+    return import_row
 
-    # --- upsert topics ---
+
+async def apply_to_existing_import(
+    session: AsyncSession,
+    import_row: Import,
+    result: ParseResult,
+    *,
+    duration_ms: int,
+) -> Import:
+    """Fill an existing pending Import row with parsed data.
+
+    Used by the HTTP upload background task — the row was created up-front
+    by the API endpoint (with status=pending) so the client gets an id back
+    immediately for polling.  We mutate years_imported / report / duration
+    / status here and write all loans+parties+installments+issues in one
+    transaction.
+    """
+    years = sorted({loan.persian_year for loan in result.loans})
+    import_row.years_imported = years
+    import_row.duration_ms = duration_ms
+    import_row.report = _summary(result)
+    import_row.status = ImportStatus.success
+    await session.flush()
+    await _apply_parse_result(session, import_row, result)
+    await session.commit()
+    return import_row
+
+
+async def _apply_parse_result(
+    session: AsyncSession,
+    import_row: Import,
+    result: ParseResult,
+) -> None:
+    """Shared body: topics + persons upsert, year-scoped replace, issues.
+
+    Caller has already created/loaded ``import_row`` (with ``id`` populated)
+    and is responsible for the surrounding transaction (``session.commit``).
+    """
     topic_id_by_name = await _upsert_topics(session, result.topics)
-
-    # --- upsert persons (incl. resolving guarantor links) ---
     person_id_by_name = await _upsert_persons(session, result.persons)
 
-    # --- per-year replace of loans / parties / installments ---
+    years = sorted({loan.persian_year for loan in result.loans})
     if years:
         await _delete_year_scoped(session, years)
     await _insert_loans(
@@ -98,7 +135,6 @@ async def write_parse_result(
         person_ids=person_id_by_name,
     )
 
-    # --- DataIssue rows linked to this Import ---
     for issue in result.issues:
         session.add(
             DataIssue(
@@ -111,9 +147,6 @@ async def write_parse_result(
                 context=issue.context,
             )
         )
-
-    await session.commit()
-    return import_row
 
 
 # --------------------------------------------------------------------- internals

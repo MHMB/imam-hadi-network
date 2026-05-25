@@ -450,6 +450,50 @@
       }
     },
     "/api/imports": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Upload one or more xlsm files; processed in background",
+        "description": "Multipart upload endpoint.\n\nFor each uploaded file:\n- Compute sha256.  If a successful Import already has this sha, return it\n  (deduped) without touching disk again or scheduling work.\n- Otherwise persist the file under ``upload_dir/<sha>.xlsm`` and create\n  a fresh Import row with ``status=pending``.  Background task does the\n  actual parse + validate + write.\n\nReturns 202 with the (possibly mixed dedup + pending) list of Import\nrows; client polls ``/api/imports/{id}`` until terminal status.",
+        "operationId": "imports_upload_api_imports_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_imports_upload_api_imports_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImportListItem"
+                  },
+                  "title": "Response Imports Upload Api Imports Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "imports"
@@ -706,6 +750,24 @@
   },
   "components": {
     "schemas": {
+      "Body_imports_upload_api_imports_post": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string",
+              "contentMediaType": "application/octet-stream"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "One or more .xlsm files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "Body_imports_upload_api_imports_post"
+      },
       "DataIssueItem": {
         "properties": {
           "id": {

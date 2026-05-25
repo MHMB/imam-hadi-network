@@ -119,7 +119,21 @@ export interface paths {
         /** Imports history */
         get: operations["imports_list_api_imports_get"];
         put?: never;
-        post?: never;
+        /**
+         * Upload one or more xlsm files; processed in background
+         * @description Multipart upload endpoint.
+         *
+         *     For each uploaded file:
+         *     - Compute sha256.  If a successful Import already has this sha, return it
+         *       (deduped) without touching disk again or scheduling work.
+         *     - Otherwise persist the file under ``upload_dir/<sha>.xlsm`` and create
+         *       a fresh Import row with ``status=pending``.  Background task does the
+         *       actual parse + validate + write.
+         *
+         *     Returns 202 with the (possibly mixed dedup + pending) list of Import
+         *     rows; client polls ``/api/imports/{id}`` until terminal status.
+         */
+        post: operations["imports_upload_api_imports_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -204,6 +218,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_imports_upload_api_imports_post */
+        Body_imports_upload_api_imports_post: {
+            /**
+             * Files
+             * @description One or more .xlsm files
+             */
+            files: string[];
+        };
         /** DataIssueItem */
         DataIssueItem: {
             /** Id */
@@ -860,6 +882,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_ImportListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    imports_upload_api_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_imports_upload_api_imports_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportListItem"][];
                 };
             };
             /** @description Validation Error */

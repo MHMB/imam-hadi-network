@@ -8,8 +8,7 @@ import { Card, KpiCard } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
-import { api } from "@/lib/api/client";
-import { useQuery } from "@tanstack/react-query";
+import { useImportPolling } from "@/lib/query/hooks";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: messages.importStatusPending,
@@ -28,11 +27,9 @@ const STATUS_TONE: Record<string, "paid" | "unpaid" | "overdue"> = {
 export default function ImportDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const importId = Number(id);
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ["imports", importId],
-    queryFn: () => api.import(importId),
-    enabled: Number.isFinite(importId),
-  });
+  const { data, isLoading, isError } = useImportPolling(
+    Number.isFinite(importId) ? importId : null,
+  );
 
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState />;
