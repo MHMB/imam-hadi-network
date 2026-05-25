@@ -43,11 +43,14 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Format check
+        run: pnpm prettier --check .
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Unit tests
-        run: pnpm test --run
+        run: pnpm vitest --run
 
       - name: Build
         run: pnpm build

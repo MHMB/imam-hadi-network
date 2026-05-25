@@ -1,8 +1,6 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript", "plugin:tailwindcss/recommended"],
+  "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
-    "tailwindcss/no-custom-classname": "off",
-    "tailwindcss/classnames-order": "warn",
     "no-restricted-syntax": [
       "error",
       {
@@ -10,10 +8,5 @@
         "message": "Use logical-direction Tailwind utilities (ms-, me-, ps-, pe-, start-, end-, border-s-, border-e-, rounded-s-, rounded-e-, ...) — physical-direction utilities break RTL layout."
       }
     ]
-  },
-  "settings": {
-    "tailwindcss": {
-      "config": "tailwind.config.ts"
-    }
   }
 }

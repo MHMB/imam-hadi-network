@@ -26,6 +26,7 @@ export const messages = {
   retry: "تلاش دوباره",
   search: "جستجو",
   searchPlaceholder: "جستجو در نام، شماره تماس...",
+  allYears: "همه سال‌ها",
 
   // --- Person concepts ---
   person: "شخص",
@@ -144,7 +145,11 @@ export const JALALI_MONTHS: readonly string[] = [
 
 /** Map enum-style severity strings to Persian labels. */
 export function severityLabel(s: "error" | "warning" | "info"): string {
-  return { error: messages.severityError, warning: messages.severityWarning, info: messages.severityInfo }[s];
+  return {
+    error: messages.severityError,
+    warning: messages.severityWarning,
+    info: messages.severityInfo,
+  }[s];
 }
 
 /** Map enum-style category strings to Persian labels. */

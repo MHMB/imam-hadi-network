@@ -73,8 +73,7 @@ function qs(params: Record<string, QueryValue>): string {
 export const api = {
   kpi: () => getJson<KPIResponse>("/kpi"),
 
-  topics: (params: { year?: number } = {}) =>
-    getJson<TopicSummary[]>(`/topics${qs(params)}`),
+  topics: (params: { year?: number } = {}) => getJson<TopicSummary[]>(`/topics${qs(params)}`),
 
   persons: (
     params: {

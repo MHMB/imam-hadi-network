@@ -1,0 +1,7 @@
+.next/
+node_modules/
+out/
+playwright-report/
+pnpm-lock.yaml
+src/lib/api/schema.d.ts
+public/fonts/
