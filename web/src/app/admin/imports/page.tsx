@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { XlsmUploader } from "@/components/admin/XlsmUploader";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
@@ -28,6 +30,7 @@ const STATUS_TONE: Record<string, "paid" | "unpaid" | "overdue"> = {
 };
 
 export default function AdminImportsPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const { data, isLoading, isError } = useImports({ page, page_size: PAGE_SIZE });
 
@@ -42,6 +45,12 @@ export default function AdminImportsPage() {
           </Link>
         </p>
       </header>
+
+      <XlsmUploader
+        onComplete={(ids) => {
+          if (ids.length > 0) router.push(`/admin/imports/${ids[0]}`);
+        }}
+      />
 
       {isLoading && <Loading />}
       {isError && <ErrorState />}

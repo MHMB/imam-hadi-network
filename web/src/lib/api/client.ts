@@ -118,7 +118,31 @@ export const api = {
       page_size?: number;
     } = {},
   ) => getJson<Schemas["Page_DataIssueItem_"]>(`/issues${qs(params)}`),
+
+  uploadImports: async (files: File[]): Promise<ImportListItem[]> => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f, f.name);
+    const res = await fetch(`${API_BASE}/imports`, {
+      method: "POST",
+      body: form,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new ApiError(res.status, "/imports", await safeError(res));
+    }
+    return (await res.json()) as ImportListItem[];
+  },
 };
+
+async function safeError(res: Response): Promise<string | undefined> {
+  try {
+    const body = (await res.json()) as { detail?: unknown };
+    if (typeof body.detail === "string") return body.detail;
+  } catch {
+    // ignore non-json error bodies
+  }
+  return undefined;
+}
 
 // Re-export the raw paths type so route-aware code (e.g. hooks generated
 // from `paths`) can use it.
