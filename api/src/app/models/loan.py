@@ -35,6 +35,7 @@ from app.models.enums import LoanPartyRole
 from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.installment import Installment
     from app.models.person import Person
     from app.models.topic import LoanTopic
 
@@ -140,8 +141,13 @@ class LoanParty(Base):
     # --- relationships ---
     loan: Mapped[Loan] = relationship(back_populates="parties", default=None)
     person: Mapped[Person] = relationship(default=None)
-    # ``installments`` collection added in app.models.installment via
-    # back_populates — keeps that side as the schedule's owner.
+    installments: Mapped[list[Installment]] = relationship(
+        back_populates="loan_party",
+        cascade="all, delete-orphan",
+        order_by="(Installment.due_persian_year, Installment.due_persian_month,"
+        " Installment.due_day_of_month)",
+        default_factory=list,
+    )
 
     __table_args__ = (
         UniqueConstraint("loan_id", "role", "person_id", name="unique_role_person"),

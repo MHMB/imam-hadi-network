@@ -38,12 +38,14 @@ class Base(MappedAsDataclass, DeclarativeBase):
 # Concrete models — order matters only for readability; SQLAlchemy resolves
 # inter-table relationships via string FKs.  Import every model module here
 # so ``Base.metadata`` is fully populated for Alembic autogenerate.
+from app.models.installment import Installment  # noqa: E402
 from app.models.loan import Loan, LoanParty  # noqa: E402
 from app.models.person import Person, PersonGuarantor  # noqa: E402
 from app.models.topic import LoanTopic  # noqa: E402
 
 __all__ = [
     "Base",
+    "Installment",
     "Loan",
     "LoanParty",
     "LoanTopic",
