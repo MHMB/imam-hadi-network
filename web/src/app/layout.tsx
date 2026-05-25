@@ -1,29 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import localFont from "next/font/local";
+import { Vazirmatn } from "next/font/google";
 import "./globals.css";
 import { messages } from "@/lib/i18n";
+import { ReactQueryProvider } from "@/lib/query/provider";
+import { AppShell } from "@/components/shell/AppShell";
 
-// Vazirmatn — self-hosted (Phase 4 will drop the WOFF2 files into web/public/fonts/).
-// Until then we declare the family so Tailwind's `font-sans` class compiles.
-const vazirmatn = localFont({
-  src: [
-    {
-      path: "../../public/fonts/Vazirmatn-Regular.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../../public/fonts/Vazirmatn-Bold.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
+// Vazirmatn from Google Fonts — auto-self-hosted by Next at build time.
+// No CDN dependency at runtime, no FOUT on slow networks.
+const vazirmatn = Vazirmatn({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-vazirmatn",
   display: "swap",
-  // OK to fall back to system fonts during development if files are absent.
   fallback: ["system-ui", "Tahoma", "Arial"],
-  adjustFontFallback: false,
-  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -40,8 +29,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl" className={vazirmatn.variable}>
-      <body className="min-h-screen bg-white font-sans text-slate-900 antialiased">
-        {children}
+      <body className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+        <ReactQueryProvider>
+          <AppShell>{children}</AppShell>
+        </ReactQueryProvider>
       </body>
     </html>
   );
