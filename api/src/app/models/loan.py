@@ -35,6 +35,7 @@ from app.models.enums import LoanPartyRole
 from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.import_ import Import
     from app.models.installment import Installment
     from app.models.person import Person
     from app.models.topic import LoanTopic
@@ -85,9 +86,11 @@ class Loan(Base, TimestampMixin):
         foreign_keys=[guarantor_id],
         default=None,
     )
-    # ``import_`` relationship attached in app.models.import_ once that class
-    # is defined (Python name "import" is reserved, so the back-ref is
-    # configured on the Import side via ``Import.loans``).
+    import_: Mapped[Import] = relationship(
+        back_populates="loans",
+        foreign_keys=[import_id],
+        default=None,
+    )
     parties: Mapped[list[LoanParty]] = relationship(
         back_populates="loan",
         cascade="all, delete-orphan",
