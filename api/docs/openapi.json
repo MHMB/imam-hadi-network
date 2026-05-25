@@ -1,0 +1,1883 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Imam Hadi Network API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/kpi": {
+      "get": {
+        "tags": [
+          "kpi"
+        ],
+        "summary": "Dashboard KPIs",
+        "description": "Top-level counts and amounts for the home page (DESIGN.md §6.2.1).",
+        "operationId": "kpi_api_kpi_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KPIResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans": {
+      "get": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Paginated loan list with year/topic/status/person/liaison filters",
+        "operationId": "list__api_loans_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1500,
+                  "minimum": 1300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "topic_ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated topic ids, e.g. '3,7'",
+              "title": "Topic Ids"
+            },
+            "description": "Comma-separated topic ids, e.g. '3,7'"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(active|settled)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "active | settled",
+              "title": "Status"
+            },
+            "description": "active | settled"
+          },
+          {
+            "name": "borrower_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Borrower Id"
+            }
+          },
+          {
+            "name": "lender_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lender Id"
+            }
+          },
+          {
+            "name": "liaison",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Liaison"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Substring match on loan_number",
+              "title": "Q"
+            },
+            "description": "Substring match on loan_number"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_LoanListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/{loan_id}": {
+      "get": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Loan detail: borrowers, lenders, installments",
+        "operationId": "detail_api_loans__loan_id__get",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/persons": {
+      "get": {
+        "tags": [
+          "persons"
+        ],
+        "summary": "Paginated person list with Persian-fuzzy search and filters",
+        "operationId": "list__api_persons_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Persian-fuzzy name + phone-substring",
+              "title": "Q"
+            },
+            "description": "Persian-fuzzy name + phone-substring"
+          },
+          {
+            "name": "verified_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Verified Only"
+            }
+          },
+          {
+            "name": "has_debt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Has Debt"
+            }
+          },
+          {
+            "name": "has_receivable",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Has Receivable"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_PersonListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/persons/{person_id}": {
+      "get": {
+        "tags": [
+          "persons"
+        ],
+        "summary": "Per-person profile",
+        "operationId": "detail_api_persons__person_id__get",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/topics": {
+      "get": {
+        "tags": [
+          "topics"
+        ],
+        "summary": "Loan topics with per-year counts + outstanding",
+        "operationId": "topics_api_topics_get",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 1500,
+                  "minimum": 1300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by Jalali year",
+              "title": "Year"
+            },
+            "description": "Filter by Jalali year"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TopicSummary"
+                  },
+                  "title": "Response Topics Api Topics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "Imports history",
+        "operationId": "imports_list_api_imports_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ImportListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/imports/{import_id}": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "One import",
+        "operationId": "imports_detail_api_imports__import_id__get",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Import Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/issues": {
+      "get": {
+        "tags": [
+          "imports"
+        ],
+        "summary": "DataIssue rows (defaults to latest import)",
+        "operationId": "issues_list_api_issues_get",
+        "parameters": [
+          {
+            "name": "import_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Import Id"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IssueSeverity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/IssueCategory"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_DataIssueItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Health",
+        "description": "Liveness + DB connectivity check.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Version",
+        "description": "Return application version (also reported by /api/health).",
+        "operationId": "version_api_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Version Api Version Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DataIssueItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "import_id": {
+            "type": "integer",
+            "title": "Import Id"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/IssueSeverity"
+          },
+          "category": {
+            "$ref": "#/components/schemas/IssueCategory"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
+          },
+          "cell": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cell"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "import_id",
+          "severity",
+          "category",
+          "message"
+        ],
+        "title": "DataIssueItem"
+      },
+      "GuarantorRole": {
+        "type": "string",
+        "enum": [
+          "main",
+          "secondary_2",
+          "secondary_3",
+          "secondary_4"
+        ],
+        "title": "GuarantorRole",
+        "description": "Ordered slots a person's main + secondary guarantors fill (4 max)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImportDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploaded At"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "source_sha256": {
+            "type": "string",
+            "title": "Source Sha256"
+          },
+          "years_imported": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years Imported"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImportStatus"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "issue_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Issue Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Error Count"
+          },
+          "report": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "uploaded_at",
+          "source_filename",
+          "source_sha256",
+          "years_imported",
+          "status",
+          "issue_count",
+          "error_count",
+          "report"
+        ],
+        "title": "ImportDetailResponse"
+      },
+      "ImportListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploaded At"
+          },
+          "source_filename": {
+            "type": "string",
+            "title": "Source Filename"
+          },
+          "source_sha256": {
+            "type": "string",
+            "title": "Source Sha256"
+          },
+          "years_imported": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Years Imported"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImportStatus"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "issue_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Issue Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Error Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "uploaded_at",
+          "source_filename",
+          "source_sha256",
+          "years_imported",
+          "status",
+          "issue_count",
+          "error_count"
+        ],
+        "title": "ImportListItem"
+      },
+      "ImportStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "success",
+          "failed"
+        ],
+        "title": "ImportStatus",
+        "description": "Lifecycle of one xlsm import."
+      },
+      "InstallmentRef": {
+        "properties": {
+          "due_persian_year": {
+            "type": "integer",
+            "title": "Due Persian Year"
+          },
+          "due_persian_month": {
+            "type": "integer",
+            "title": "Due Persian Month"
+          },
+          "due_day_of_month": {
+            "type": "integer",
+            "title": "Due Day Of Month"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InstallmentStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "due_persian_year",
+          "due_persian_month",
+          "due_day_of_month",
+          "amount",
+          "status"
+        ],
+        "title": "InstallmentRef"
+      },
+      "InstallmentStatus": {
+        "type": "string",
+        "enum": [
+          "paid",
+          "unpaid"
+        ],
+        "title": "InstallmentStatus",
+        "description": "Repayment installment state.\n\nDerived from the cell fill colour in the source xlsm (``#00B050`` = paid,\nanything else = unpaid).  Phase 2 will add intermediate states once\nactual payment dates are recorded."
+      },
+      "IssueCategory": {
+        "type": "string",
+        "enum": [
+          "broken_ref",
+          "total_mismatch",
+          "unresolved_person",
+          "unknown_topic",
+          "duplicate_phone",
+          "bad_day",
+          "color_anomaly",
+          "unknown_phone_format",
+          "orphan_row",
+          "missing_day",
+          "missing_amount"
+        ],
+        "title": "IssueCategory",
+        "description": "Categorical type of an importer ``DataIssue``.\n\nOpen list — extend when the importer learns to detect new problems.\nPersian labels live in the frontend i18n map (DESIGN.md §6.5), keyed\noff these identifiers."
+      },
+      "IssueSeverity": {
+        "type": "string",
+        "enum": [
+          "error",
+          "warning",
+          "info"
+        ],
+        "title": "IssueSeverity",
+        "description": "Severity bucket for an importer ``DataIssue``."
+      },
+      "KPIByYear": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "loan_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Loan Count"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "outstanding": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outstanding"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "loan_count",
+          "total",
+          "outstanding"
+        ],
+        "title": "KPIByYear",
+        "description": "One row per persian year present in the DB."
+      },
+      "KPIResponse": {
+        "properties": {
+          "persons_total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Persons Total"
+          },
+          "loans_total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Loans Total"
+          },
+          "loans_active": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Loans Active"
+          },
+          "loans_settled": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Loans Settled"
+          },
+          "total_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Amount"
+          },
+          "outstanding_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outstanding Total"
+          },
+          "overdue_installments": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Overdue Installments"
+          },
+          "by_year": {
+            "items": {
+              "$ref": "#/components/schemas/KPIByYear"
+            },
+            "type": "array",
+            "title": "By Year"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persons_total",
+          "loans_total",
+          "loans_active",
+          "loans_settled",
+          "total_amount",
+          "outstanding_total",
+          "overdue_installments",
+          "by_year"
+        ],
+        "title": "KPIResponse",
+        "description": "Top-level dashboard KPIs (DESIGN.md §5.2 / §6.2.1)."
+      },
+      "LenderPartyRef": {
+        "properties": {
+          "party_id": {
+            "type": "integer",
+            "title": "Party Id"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Paid"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining"
+          },
+          "installments": {
+            "items": {
+              "$ref": "#/components/schemas/InstallmentRef"
+            },
+            "type": "array",
+            "title": "Installments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "party_id",
+          "person",
+          "amount",
+          "paid",
+          "remaining",
+          "installments"
+        ],
+        "title": "LenderPartyRef"
+      },
+      "LoanDetailResponse": {
+        "properties": {
+          "loan": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Loan",
+            "description": "Loan-level fields: id, persian_year, loan_number, channel_number, total_amount, liaison_label, description"
+          },
+          "topic": {
+            "$ref": "#/components/schemas/TopicRef"
+          },
+          "guarantor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "borrowers": {
+            "items": {
+              "$ref": "#/components/schemas/LoanPartyRef"
+            },
+            "type": "array",
+            "title": "Borrowers"
+          },
+          "lenders": {
+            "items": {
+              "$ref": "#/components/schemas/LenderPartyRef"
+            },
+            "type": "array",
+            "title": "Lenders"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/LoanTotals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic",
+          "guarantor",
+          "borrowers",
+          "lenders",
+          "totals"
+        ],
+        "title": "LoanDetailResponse",
+        "description": "Response shape for /api/loans/{id} (DESIGN.md §5.2)."
+      },
+      "LoanListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "persian_year": {
+            "type": "integer",
+            "title": "Persian Year"
+          },
+          "loan_number": {
+            "type": "string",
+            "title": "Loan Number"
+          },
+          "channel_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel Number"
+          },
+          "topic_name": {
+            "type": "string",
+            "title": "Topic Name"
+          },
+          "borrower_name": {
+            "type": "string",
+            "title": "Borrower Name"
+          },
+          "liaison_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liaison Label"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Paid"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "settled"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "persian_year",
+          "loan_number",
+          "channel_number",
+          "topic_name",
+          "borrower_name",
+          "liaison_label",
+          "total",
+          "paid",
+          "remaining",
+          "status"
+        ],
+        "title": "LoanListItem",
+        "description": "Row on the loans list page (DESIGN.md §6.2.4)."
+      },
+      "LoanPartyRef": {
+        "properties": {
+          "party_id": {
+            "type": "integer",
+            "title": "Party Id"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "party_id",
+          "person",
+          "amount"
+        ],
+        "title": "LoanPartyRef"
+      },
+      "LoanTotals": {
+        "properties": {
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Paid"
+          },
+          "remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining"
+          },
+          "settled": {
+            "type": "boolean",
+            "title": "Settled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "paid",
+          "remaining",
+          "settled"
+        ],
+        "title": "LoanTotals"
+      },
+      "Page_DataIssueItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DataIssueItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[DataIssueItem]"
+      },
+      "Page_ImportListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[ImportListItem]"
+      },
+      "Page_LoanListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LoanListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[LoanListItem]"
+      },
+      "Page_PersonListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PersonListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "Page[PersonListItem]"
+      },
+      "PersonDetailResponse": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonListItem"
+          },
+          "guarantors": {
+            "items": {
+              "$ref": "#/components/schemas/PersonGuarantorRef"
+            },
+            "type": "array",
+            "title": "Guarantors"
+          },
+          "by_year": {
+            "items": {
+              "$ref": "#/components/schemas/PersonYearBreakdown"
+            },
+            "type": "array",
+            "title": "By Year"
+          },
+          "lifetime": {
+            "$ref": "#/components/schemas/PersonLifetime"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/PersonInstallmentRef"
+            },
+            "type": "array",
+            "title": "Upcoming"
+          },
+          "overdue": {
+            "items": {
+              "$ref": "#/components/schemas/PersonInstallmentRef"
+            },
+            "type": "array",
+            "title": "Overdue"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person",
+          "guarantors",
+          "by_year",
+          "lifetime",
+          "upcoming",
+          "overdue"
+        ],
+        "title": "PersonDetailResponse"
+      },
+      "PersonGuarantorRef": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/GuarantorRole"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "person"
+        ],
+        "title": "PersonGuarantorRef"
+      },
+      "PersonInstallmentRef": {
+        "properties": {
+          "loan_id": {
+            "type": "integer",
+            "title": "Loan Id"
+          },
+          "loan_number": {
+            "type": "string",
+            "title": "Loan Number"
+          },
+          "counterparty_name": {
+            "type": "string",
+            "title": "Counterparty Name"
+          },
+          "due_persian_year": {
+            "type": "integer",
+            "title": "Due Persian Year"
+          },
+          "due_persian_month": {
+            "type": "integer",
+            "title": "Due Persian Month"
+          },
+          "due_day_of_month": {
+            "type": "integer",
+            "title": "Due Day Of Month"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InstallmentStatus"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loan_id",
+          "loan_number",
+          "counterparty_name",
+          "due_persian_year",
+          "due_persian_month",
+          "due_day_of_month",
+          "amount",
+          "status",
+          "role"
+        ],
+        "title": "PersonInstallmentRef",
+        "description": "An upcoming or overdue installment surfaced on the profile page."
+      },
+      "PersonLifetime": {
+        "properties": {
+          "receivable": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Receivable"
+          },
+          "debt": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Debt"
+          },
+          "net_capital": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Capital"
+          }
+        },
+        "type": "object",
+        "required": [
+          "receivable",
+          "debt",
+          "net_capital"
+        ],
+        "title": "PersonLifetime"
+      },
+      "PersonListItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "is_verified": {
+            "type": "boolean",
+            "title": "Is Verified"
+          },
+          "total_lent": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Lent"
+          },
+          "total_borrowed": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Borrowed"
+          },
+          "outstanding_receivable": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outstanding Receivable"
+          },
+          "outstanding_debt": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outstanding Debt"
+          },
+          "net_capital": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Capital"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "phone",
+          "is_verified",
+          "total_lent",
+          "total_borrowed",
+          "outstanding_receivable",
+          "outstanding_debt",
+          "net_capital"
+        ],
+        "title": "PersonListItem",
+        "description": "Row on the persons list page (DESIGN.md §6.2.2)."
+      },
+      "PersonRef": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name",
+          "phone"
+        ],
+        "title": "PersonRef",
+        "description": "Minimal nested person reference used in profile detail responses."
+      },
+      "PersonYearBreakdown": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "as_borrower_loans": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "As Borrower Loans"
+          },
+          "as_borrower_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Borrower Total"
+          },
+          "as_borrower_paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Borrower Paid"
+          },
+          "as_borrower_remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Borrower Remaining"
+          },
+          "as_lender_parties": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "As Lender Parties"
+          },
+          "as_lender_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Lender Total"
+          },
+          "as_lender_paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Lender Paid"
+          },
+          "as_lender_remaining": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "As Lender Remaining"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "as_borrower_loans",
+          "as_borrower_total",
+          "as_borrower_paid",
+          "as_borrower_remaining",
+          "as_lender_parties",
+          "as_lender_total",
+          "as_lender_paid",
+          "as_lender_remaining"
+        ],
+        "title": "PersonYearBreakdown"
+      },
+      "TopicRef": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TopicRef"
+      },
+      "TopicSummary": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "loan_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Loan Count"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "outstanding": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Outstanding"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "loan_count",
+          "total",
+          "outstanding"
+        ],
+        "title": "TopicSummary",
+        "description": "One row on the Topics page (DESIGN.md §6.2.6)."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
