@@ -18,6 +18,7 @@ from app import __version__
 from app.config import settings
 from app.db import SessionLocal
 from app.logging import configure_logging, get_logger
+from app.routers import kpi as kpi_router
 
 log = get_logger(__name__)
 
@@ -44,6 +45,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+app.include_router(kpi_router.router)
 
 
 @app.get("/api/health", tags=["meta"])
