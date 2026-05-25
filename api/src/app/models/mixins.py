@@ -5,14 +5,17 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, MappedAsDataclass, mapped_column
 
 
-class TimestampMixin:
+class TimestampMixin(MappedAsDataclass):
     """Adds ``created_at`` (immutable) and ``updated_at`` (auto-bumped on update).
 
     ``init=False`` keeps these columns out of the dataclass constructor —
     they are DB-managed.  Callers never set them by hand.
+
+    Extends ``MappedAsDataclass`` so SQLAlchemy 2.1 stops warning about
+    a non-dataclass mixin bleeding columns into a dataclass subclass.
     """
 
     created_at: Mapped[datetime] = mapped_column(
