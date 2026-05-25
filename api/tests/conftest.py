@@ -1,18 +1,17 @@
-"""Shared pytest fixtures.
-
-P0: minimal — just an httpx client against the FastAPI app.
-P1 will add a transactional ``db_session`` fixture.
-P2 will add an ``xlsm_fixture_path`` pointing at the sample workbook.
-"""
+"""Shared pytest fixtures."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app
+
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+SAMPLE_XLSM = FIXTURES_DIR / "sample_data-14050208.xlsm"
 
 
 @pytest.fixture
@@ -21,3 +20,10 @@ async def client() -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+def sample_xlsm_path() -> Path:
+    """Absolute path to the anonymized sample workbook."""
+    assert SAMPLE_XLSM.exists(), f"missing fixture: {SAMPLE_XLSM}"
+    return SAMPLE_XLSM
