@@ -39,9 +39,11 @@ class Base(MappedAsDataclass, DeclarativeBase):
 # inter-table relationships via string FKs.  Import every model module here
 # so ``Base.metadata`` is fully populated for Alembic autogenerate.
 from app.models.person import Person, PersonGuarantor  # noqa: E402
+from app.models.topic import LoanTopic  # noqa: E402
 
 __all__ = [
     "Base",
+    "LoanTopic",
     "Person",
     "PersonGuarantor",
 ]
