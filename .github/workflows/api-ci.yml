@@ -63,5 +63,11 @@ jobs:
       - name: Mypy
         run: cd api && uv run mypy src
 
+      - name: Apply migrations
+        # Integration tests (test_schema, test_importer_writer, test_importer_runner)
+        # assume the schema + seed migrations have been applied against the
+        # Postgres service container.
+        run: cd api && uv run alembic upgrade head
+
       - name: Pytest
         run: cd api && uv run pytest -ra --cov=app --cov-report=term-missing

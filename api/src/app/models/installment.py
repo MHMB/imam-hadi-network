@@ -70,8 +70,8 @@ class Installment(Base):
 
     notes: Mapped[str | None] = mapped_column(Text, default=None)
 
-    # --- relationships ---
-    loan_party: Mapped[LoanParty] = relationship(back_populates="installments", default=None)
+    # --- relationships --- (init=False — see note on Loan.topic)
+    loan_party: Mapped[LoanParty] = relationship(back_populates="installments", init=False)
 
     __table_args__ = (
         CheckConstraint("due_persian_month BETWEEN 1 AND 12", name="due_month_valid"),

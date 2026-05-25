@@ -74,10 +74,13 @@ ignore = [
     "E501",     # line length handled by formatter
     "S101",     # asserts ok in tests
     "PLR0913",  # function arg count — too aggressive for FastAPI/SQLAlchemy
+    "RUF001",   # ambiguous Unicode in string — Persian script is intentional
+    "RUF002",   # ambiguous Unicode in docstring — same reason
+    "RUF003",   # ambiguous Unicode in comment — same reason
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S", "PLR2004"]
+"tests/*" = ["S", "PLR2004", "PLC0415"]   # imports inside test fns ok for slow deps
 
 [tool.mypy]
 python_version = "3.12"

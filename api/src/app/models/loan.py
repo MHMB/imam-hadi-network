@@ -81,20 +81,26 @@ class Loan(Base, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text, default=None)
 
     # --- relationships ---
-    topic: Mapped[LoanTopic] = relationship(default=None)
+    # init=False on every relationship side — otherwise MappedAsDataclass
+    # passes the relationship attribute (e.g. topic=None) through __init__,
+    # and SQLAlchemy synchronises the FK columns (topic_id, import_id, ...)
+    # to None to match.  We pass the FK ids directly in the writer; the
+    # ORM objects are fetched separately when needed.
+    topic: Mapped[LoanTopic] = relationship(init=False)
     guarantor: Mapped[Person | None] = relationship(
         foreign_keys=[guarantor_id],
-        default=None,
+        init=False,
     )
     import_: Mapped[Import] = relationship(
         back_populates="loans",
         foreign_keys=[import_id],
-        default=None,
+        init=False,
     )
     parties: Mapped[list[LoanParty]] = relationship(
         back_populates="loan",
         cascade="all, delete-orphan",
         order_by="LoanParty.display_order",
+        init=False,
         default_factory=list,
     )
 
@@ -141,14 +147,15 @@ class LoanParty(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 3), nullable=False)
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
-    # --- relationships ---
-    loan: Mapped[Loan] = relationship(back_populates="parties", default=None)
-    person: Mapped[Person] = relationship(default=None)
+    # --- relationships --- (init=False — see note on Loan.topic)
+    loan: Mapped[Loan] = relationship(back_populates="parties", init=False)
+    person: Mapped[Person] = relationship(init=False)
     installments: Mapped[list[Installment]] = relationship(
         back_populates="loan_party",
         cascade="all, delete-orphan",
         order_by="(Installment.due_persian_year, Installment.due_persian_month,"
         " Installment.due_day_of_month)",
+        init=False,
         default_factory=list,
     )
 
