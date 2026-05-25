@@ -31,7 +31,7 @@ web.install: ## Install web deps via pnpm.
 .PHONY: db.up
 db.up: ## Start dev Postgres in background.
 	$(COMPOSE_DEV) up -d db
-	@echo "Postgres listening on localhost:5433"
+	@echo "Postgres listening on localhost:5434"
 
 .PHONY: db.down
 db.down: ## Stop dev Postgres (data persists).

@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # --- database ---
     database_url: PostgresDsn = Field(
         default=PostgresDsn(
-            "postgresql+psycopg://imamhadi:imamhadi_dev_password@localhost:5433/imamhadi"
+            "postgresql+psycopg://imamhadi:imamhadi_dev_password@localhost:5434/imamhadi"
         ),
         description="SQLAlchemy URL with psycopg driver.  Async + sync share the same DSN.",
     )
