@@ -1,0 +1,67 @@
+name: api-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - ".github/workflows/api-ci.yml"
+  pull_request:
+    paths:
+      - "api/**"
+      - ".github/workflows/api-ci.yml"
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: imamhadi_test
+          POSTGRES_USER: imamhadi
+          POSTGRES_PASSWORD: imamhadi_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U imamhadi -d imamhadi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://imamhadi:imamhadi_test_password@localhost:5432/imamhadi_test
+      APP_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+
+      - name: Set up Python
+        run: cd api && uv python install 3.12
+
+      - name: Install deps
+        run: cd api && uv sync --all-extras
+
+      - name: Ruff lint
+        run: cd api && uv run ruff check .
+
+      - name: Ruff format check
+        run: cd api && uv run ruff format --check .
+
+      - name: Mypy
+        run: cd api && uv run mypy src
+
+      - name: Pytest
+        run: cd api && uv run pytest -ra --cov=app --cov-report=term-missing

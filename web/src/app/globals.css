@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Persian-optimized defaults */
+html {
+  font-feature-settings: "ss02", "ss03";
+}
+
+/* Touch targets ≥44px on mobile */
+@layer base {
+  button,
+  [role="button"],
+  a {
+    min-height: 44px;
+  }
+}

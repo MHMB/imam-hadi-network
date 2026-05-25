@@ -1,0 +1,19 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript", "plugin:tailwindcss/recommended"],
+  "rules": {
+    "tailwindcss/no-custom-classname": "off",
+    "tailwindcss/classnames-order": "warn",
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/(^|\\s)(ml-|mr-|pl-|pr-|left-|right-|border-l-|border-r-|rounded-l-|rounded-r-|rounded-tl-|rounded-tr-|rounded-bl-|rounded-br-)/]",
+        "message": "Use logical-direction Tailwind utilities (ms-, me-, ps-, pe-, start-, end-, border-s-, border-e-, rounded-s-, rounded-e-, ...) — physical-direction utilities break RTL layout."
+      }
+    ]
+  },
+  "settings": {
+    "tailwindcss": {
+      "config": "tailwind.config.ts"
+    }
+  }
+}

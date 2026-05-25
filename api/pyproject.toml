@@ -1,0 +1,107 @@
+[project]
+name = "imamhadi-api"
+version = "0.1.0"
+description = "Imam Hadi Network — borrowing dashboard API + importer"
+readme = "../README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+
+dependencies = [
+    # Web
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "python-multipart>=0.0.12",        # file upload (P6)
+    # Data
+    "sqlalchemy[asyncio]>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary,pool]>=3.2",       # sync (alembic) + async via SQLAlchemy
+    # Validation / settings
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # Importer
+    "openpyxl>=3.1.5",
+    "typer>=0.13",
+    # Persian / Jalali
+    "jdatetime>=5.0",
+    # Logging
+    "structlog>=24.4",
+    # Phone number canonicalization (Iranian)
+    "phonenumbers>=8.13",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.7.4",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.27",
+    "types-openpyxl>=3.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
+[tool.uv]
+package = true
+
+# --- Tooling config ---
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["src/app/alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle / pyflakes
+    "I",                # isort
+    "B",                # bugbear
+    "UP",               # pyupgrade
+    "SIM",              # simplify
+    "RUF",              # ruff-specific
+    "S",                # bandit
+    "C4",               # comprehensions
+    "PT",               # pytest style
+    "PL",               # pylint subset
+]
+ignore = [
+    "E501",     # line length handled by formatter
+    "S101",     # asserts ok in tests
+    "PLR0913",  # function arg count — too aggressive for FastAPI/SQLAlchemy
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "PLR2004"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["src/app/alembic/versions"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = ["jdatetime.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "slow: marks tests as slow",
+    "integration: requires a real database",
+]
+
+[tool.coverage.run]
+source = ["src/app"]
+omit = ["src/app/alembic/*", "src/app/__main__.py"]
