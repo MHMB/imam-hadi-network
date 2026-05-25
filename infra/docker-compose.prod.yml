@@ -1,0 +1,124 @@
+# Production stack — co-tenant with the existing n8n containers on the OVH
+# host.  All services live on the isolated `imamhadi_net` network so the
+# n8n stack on `n8n_default` is untouched.
+#
+# Required env (loaded from .env in this directory):
+#   GH_OWNER          — GitHub owner whose ghcr.io images we pull (e.g. mhmb)
+#   GH_REPO           — repo name (imam-hadi-network)
+#   IMAGE_TAG         — image tag to pull (latest | sha-xxxxx | vX.Y.Z)
+#   PUBLIC_HOST       — fully-qualified hostname Traefik issues a cert for
+#                       (e.g. vps-d5fdd1dd.vps.ovh.us)
+#   ACME_EMAIL        — Let's Encrypt contact email
+#   DB_PASSWORD       — Postgres password (also written to secrets/db_password)
+#   BASIC_AUTH_USERS  — htpasswd-style 'user:hash' for the dashboard,
+#                       generate via: docker run --rm httpd:alpine htpasswd -nbB admin '<password>'
+#
+# Bootstrap: see DEPLOY.md.
+
+name: imamhadi
+
+networks:
+  imamhadi_net:
+    external: true   # created once by `docker network create imamhadi_net`
+
+volumes:
+  pgdata:
+  traefik_letsencrypt:
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: imamhadi
+      POSTGRES_USER: imamhadi
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [imamhadi_net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U imamhadi -d imamhadi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/${GH_OWNER}/${GH_REPO}-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql+psycopg://imamhadi:${DB_PASSWORD}@db:5432/imamhadi
+      APP_ENV: prod
+      UPLOAD_DIR: /uploads
+      MAX_UPLOAD_MB: "50"
+      CORS_ORIGINS: '["https://${PUBLIC_HOST}"]'
+    volumes:
+      - /opt/imamhadi/uploads:/uploads
+    networks: [imamhadi_net]
+    labels:
+      - "traefik.enable=true"
+      # The /api/* path is served by the API behind basic-auth.
+      - "traefik.http.routers.imamhadi-api.rule=Host(`${PUBLIC_HOST}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.imamhadi-api.entrypoints=websecure"
+      - "traefik.http.routers.imamhadi-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.imamhadi-api.middlewares=imamhadi-auth@docker,imamhadi-bodysize@docker"
+      - "traefik.http.services.imamhadi-api.loadbalancer.server.port=8000"
+      # Auth middleware (shared with web router below)
+      - "traefik.http.middlewares.imamhadi-auth.basicauth.users=${BASIC_AUTH_USERS}"
+      - "traefik.http.middlewares.imamhadi-auth.basicauth.realm=imamhadi"
+      # Raise the request-body cap to fit the 50 MB xlsm uploads (default 4 KiB).
+      - "traefik.http.middlewares.imamhadi-bodysize.buffering.maxRequestBodyBytes=52428800"
+
+  web:
+    image: ghcr.io/${GH_OWNER}/${GH_REPO}-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE: /api
+    networks: [imamhadi_net]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.imamhadi-web.rule=Host(`${PUBLIC_HOST}`)"
+      - "traefik.http.routers.imamhadi-web.entrypoints=websecure"
+      - "traefik.http.routers.imamhadi-web.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.imamhadi-web.middlewares=imamhadi-auth@docker"
+      - "traefik.http.services.imamhadi-web.loadbalancer.server.port=3000"
+      # Lower router priority so api's PathPrefix(/api) wins for /api/*
+      - "traefik.http.routers.imamhadi-web.priority=1"
+      - "traefik.http.routers.imamhadi-api.priority=10"
+
+  traefik:
+    image: traefik:v3.2
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=imamhadi_net"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http3"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      # Uncomment for first day of iteration against ACME staging.
+      # - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+    networks: [imamhadi_net]
+
+secrets:
+  db_password:
+    file: /opt/imamhadi/secrets/db_password
