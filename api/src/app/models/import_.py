@@ -73,16 +73,18 @@ class Import(Base):
     )
     error_message: Mapped[str | None] = mapped_column(Text, default=None)
 
-    # --- relationships ---
+    # --- relationships --- (init=False — see note on Loan.topic)
     loans: Mapped[list[Loan]] = relationship(
         back_populates="import_",
         passive_deletes="all",  # we use ON DELETE RESTRICT on loan.import_id
+        init=False,
         default_factory=list,
     )
     issues: Mapped[list[DataIssue]] = relationship(
         back_populates="import_",
         cascade="all, delete-orphan",
         order_by="DataIssue.severity, DataIssue.category",
+        init=False,
         default_factory=list,
     )
 
@@ -131,7 +133,7 @@ class DataIssue(Base):
 
     context: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default=None)
 
-    # --- relationships ---
-    import_: Mapped[Import] = relationship(back_populates="issues", default=None)
+    # --- relationships --- (init=False — see note on Loan.topic)
+    import_: Mapped[Import] = relationship(back_populates="issues", init=False)
 
     __table_args__ = (Index("ix_data_issue_import_severity", "import_id", "severity"),)

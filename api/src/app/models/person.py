@@ -11,18 +11,13 @@ the fragility we are migrating away from.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, ForeignKey, String
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base
 from app.models.enums import GuarantorRole
 from app.models.mixins import TimestampMixin
-
-if TYPE_CHECKING:
-    pass
 
 
 class Person(Base, TimestampMixin):
@@ -65,13 +60,11 @@ class Person(Base, TimestampMixin):
     """Maps to ``تأیید`` in the legacy people sheet.  Filter only — no
     behaviour gating in Phase 1."""
 
-    # --- relationships ---
-    guarantor_links: Mapped[list[PersonGuarantor]] = relationship(
-        back_populates="person",
-        foreign_keys="PersonGuarantor.person_id",
-        cascade="all, delete-orphan",
-        default_factory=list,
-    )
+    # No `guarantor_links` relationship on Person.  Earlier attempts to expose
+    # PersonGuarantor here (even viewonly + passive_deletes + init=False) caused
+    # SQLAlchemy to fire the orphan-cleanup sync rules against the just-inserted
+    # join rows.  API services that need guarantor info should query
+    # PersonGuarantor directly.
 
 
 class PersonGuarantor(Base):
@@ -107,16 +100,11 @@ class PersonGuarantor(Base):
         index=True,
     )
 
-    # --- relationships ---
-    person: Mapped[Person] = relationship(
-        back_populates="guarantor_links",
-        foreign_keys=[person_id],
-        default=None,
-    )
-    guarantor: Mapped[Person] = relationship(
-        foreign_keys=[guarantor_id],
-        default=None,
-    )
+    # No ORM relationships on this junction table.  The importer / API
+    # services join Person → PersonGuarantor → Person explicitly via SQL.
+    # Any relationship() here triggers SQLAlchemy's orphan-cleanup dependency
+    # rules, which clash with the writer's "drop-then-re-insert" join row
+    # workflow.
 
     __table_args__ = (
         CheckConstraint(
