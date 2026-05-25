@@ -212,9 +212,7 @@ async def list_persons(
     if filters:
         base = base.where(*filters)
 
-    total = (
-        await session.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
+    total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
     offset, limit = page_bounds(page, page_size)
     page_q = base.order_by(Person.full_name).offset(offset).limit(limit)

@@ -153,9 +153,7 @@ async def list_loans(
     if filters:
         base = base.where(*filters)
 
-    total = (
-        await session.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
+    total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
     offset, limit = page_bounds(page, page_size)
     page_q = base.order_by(Loan.persian_year.desc(), Loan.loan_number).offset(offset).limit(limit)
@@ -186,9 +184,9 @@ async def list_loans(
 async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResponse | None:
     loan_row = (
         await session.execute(
-            select(Loan, LoanTopic).join(LoanTopic, LoanTopic.id == Loan.topic_id).where(
-                Loan.id == loan_id
-            )
+            select(Loan, LoanTopic)
+            .join(LoanTopic, LoanTopic.id == Loan.topic_id)
+            .where(Loan.id == loan_id)
         )
     ).first()
     if loan_row is None:

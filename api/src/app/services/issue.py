@@ -50,9 +50,7 @@ async def list_imports(
     return Page[ImportListItem](items=items, total=total, page=page, page_size=limit)
 
 
-async def get_import_detail(
-    session: AsyncSession, import_id: int
-) -> ImportDetailResponse | None:
+async def get_import_detail(session: AsyncSession, import_id: int) -> ImportDetailResponse | None:
     row = (
         await session.execute(
             select(
@@ -91,9 +89,7 @@ async def list_issues(
     """
     if import_id is None:
         latest_row = (
-            await session.execute(
-                select(Import.id).order_by(Import.uploaded_at.desc()).limit(1)
-            )
+            await session.execute(select(Import.id).order_by(Import.uploaded_at.desc()).limit(1))
         ).first()
         if latest_row is None:
             return Page[DataIssueItem](items=[], total=0, page=page, page_size=page_size)
@@ -106,21 +102,23 @@ async def list_issues(
         filters.append(DataIssue.category == category)
 
     total = (
-        await session.execute(
-            select(func.count()).select_from(DataIssue).where(*filters)
-        )
+        await session.execute(select(func.count()).select_from(DataIssue).where(*filters))
     ).scalar_one()
 
     offset, limit = page_bounds(page, page_size)
     rows = (
-        await session.execute(
-            select(DataIssue)
-            .where(*filters)
-            .order_by(DataIssue.severity, DataIssue.category, DataIssue.id)
-            .offset(offset)
-            .limit(limit)
+        (
+            await session.execute(
+                select(DataIssue)
+                .where(*filters)
+                .order_by(DataIssue.severity, DataIssue.category, DataIssue.id)
+                .offset(offset)
+                .limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     items = [
         DataIssueItem(

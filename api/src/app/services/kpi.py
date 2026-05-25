@@ -58,9 +58,9 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
     )
     loans_active = (
         await session.execute(
-            select(func.count()).select_from(loan_outstanding_q).where(
-                loan_outstanding_q.c.outstanding > 0
-            )
+            select(func.count())
+            .select_from(loan_outstanding_q)
+            .where(loan_outstanding_q.c.outstanding > 0)
         )
     ).scalar_one()
     loans_settled = loans_total - loans_active
@@ -115,9 +115,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
             .group_by(Loan.persian_year)
         )
     ).all()
-    outstanding_by_year: dict[int, Decimal] = {
-        row[0]: row[1] for row in unpaid_year_rows
-    }
+    outstanding_by_year: dict[int, Decimal] = {row[0]: row[1] for row in unpaid_year_rows}
 
     by_year = [
         KPIByYear(
