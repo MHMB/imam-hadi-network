@@ -35,5 +35,13 @@ class Base(MappedAsDataclass, DeclarativeBase):
     metadata = metadata_obj
 
 
-# Re-export concrete models here when they land (P1).
-__all__ = ["Base"]
+# Concrete models — order matters only for readability; SQLAlchemy resolves
+# inter-table relationships via string FKs.  Import every model module here
+# so ``Base.metadata`` is fully populated for Alembic autogenerate.
+from app.models.person import Person, PersonGuarantor  # noqa: E402
+
+__all__ = [
+    "Base",
+    "Person",
+    "PersonGuarantor",
+]
