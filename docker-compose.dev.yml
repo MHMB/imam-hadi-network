@@ -1,5 +1,6 @@
 # Development-only Postgres. Production stack lives in docker-compose.prod.yml (P8).
-# Exposes :5433 on localhost (not 5432) to avoid conflict with any local Postgres install.
+# Exposes :5434 on localhost (5432/5433 may be in use by other local Postgres
+# containers — picking a fresh port avoids conflicts on dev machines).
 
 name: imamhadi-dev
 
@@ -12,7 +13,7 @@ services:
       POSTGRES_USER: imamhadi
       POSTGRES_PASSWORD: imamhadi_dev_password
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
