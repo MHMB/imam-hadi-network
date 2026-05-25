@@ -18,6 +18,11 @@ from app import __version__
 from app.config import settings
 from app.db import SessionLocal
 from app.logging import configure_logging, get_logger
+from app.routers import issue as issue_router
+from app.routers import kpi as kpi_router
+from app.routers import loan as loan_router
+from app.routers import person as person_router
+from app.routers import topic as topic_router
 
 log = get_logger(__name__)
 
@@ -44,6 +49,12 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+app.include_router(kpi_router.router)
+app.include_router(loan_router.router)
+app.include_router(person_router.router)
+app.include_router(topic_router.router)
+app.include_router(issue_router.router)
 
 
 @app.get("/api/health", tags=["meta"])
