@@ -27,6 +27,9 @@ export const messages = {
   search: "جستجو",
   searchPlaceholder: "جستجو در نام، شماره تماس...",
   allYears: "همه سال‌ها",
+  allStatuses: "همه وضعیت‌ها",
+  allSeverities: "همه سطوح",
+  allCategories: "همه دسته‌ها",
 
   // --- Person concepts ---
   person: "شخص",
