@@ -97,7 +97,22 @@ fmt: ## Auto-format all sources.
 	cd $(API_DIR) && uv run ruff check --fix . && uv run ruff format .
 	cd $(WEB_DIR) && pnpm format
 
-# --- production deploy (filled in during P8) ---
+# --- production deploy ---
+SSH_HOST := personal
+PROD_DIR := /opt/imamhadi/compose
+
 .PHONY: deploy
 deploy: ## Pull latest images on prod and restart. Requires `ssh personal` configured.
-	@echo "Phase 8 not yet wired. See PLAN.md §8.5."
+	ssh $(SSH_HOST) "cd $(PROD_DIR) && ./scripts/deploy.sh"
+
+.PHONY: deploy.logs
+deploy.logs: ## Tail the production stack logs.
+	ssh $(SSH_HOST) "cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml logs -f --tail=200"
+
+.PHONY: deploy.ps
+deploy.ps: ## Show production container status.
+	ssh $(SSH_HOST) "cd $(PROD_DIR) && docker compose -f docker-compose.prod.yml ps"
+
+.PHONY: deploy.backup
+deploy.backup: ## Run an ad-hoc pg_dump on prod (in addition to the nightly cron).
+	ssh $(SSH_HOST) "docker exec imamhadi-db-1 pg_dump -U imamhadi imamhadi | gzip > /opt/imamhadi/backups/imamhadi-manual-$$(date +%Y%m%dT%H%M%S).sql.gz"

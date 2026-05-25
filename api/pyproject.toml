@@ -2,7 +2,7 @@
 name = "imamhadi-api"
 version = "0.1.0"
 description = "Imam Hadi Network — borrowing dashboard API + importer"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 

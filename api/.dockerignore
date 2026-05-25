@@ -10,6 +10,7 @@ htmlcov/
 venv/
 tests/
 *.md
+!README.md
 Dockerfile
 .dockerignore
 .python-version
