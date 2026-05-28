@@ -18,6 +18,7 @@ from app import __version__
 from app.config import settings
 from app.db import SessionLocal
 from app.logging import configure_logging, get_logger
+from app.routers import analytics as analytics_router
 from app.routers import issue as issue_router
 from app.routers import kpi as kpi_router
 from app.routers import loan as loan_router
@@ -57,6 +58,7 @@ app.include_router(overdue_router.router)
 app.include_router(person_router.router)
 app.include_router(topic_router.router)
 app.include_router(issue_router.router)
+app.include_router(analytics_router.router)
 
 
 @app.get("/api/health", tags=["meta"])
