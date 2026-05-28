@@ -58,6 +58,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/installments/overdue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lender-side unpaid installments past their due date */
+        get: operations["overdue_api_installments_overdue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/persons": {
         parameters: {
             query?: never;
@@ -166,6 +183,23 @@ export interface paths {
         };
         /** DataIssue rows (defaults to latest import) */
         get: operations["issues_list_api_issues_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analytics/monthly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Monthly analytics (default = previous completed Jalali month) */
+        get: operations["monthly_api_analytics_monthly_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -338,6 +372,32 @@ export interface components {
          * @enum {string}
          */
         InstallmentStatus: "paid" | "unpaid";
+        /** InstallmentsDueByDay */
+        InstallmentsDueByDay: {
+            /** Day */
+            day: number;
+            /** Count */
+            count: number;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Unpaid Amount */
+            unpaid_amount: string;
+        };
+        /** InstallmentsDueSummary */
+        InstallmentsDueSummary: {
+            /** Count */
+            count: number;
+            /** Amount Total */
+            amount_total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /** Amount Unpaid */
+            amount_unpaid: string;
+            /** Payment Rate Pct */
+            payment_rate_pct: number;
+            /** By Day */
+            by_day: components["schemas"]["InstallmentsDueByDay"][];
+        };
         /**
          * IssueCategory
          * @description Categorical type of an importer ``DataIssue``.
@@ -474,6 +534,63 @@ export interface components {
             /** Settled */
             settled: boolean;
         };
+        /** MonthlyAnalyticsResponse */
+        MonthlyAnalyticsResponse: {
+            period: components["schemas"]["MonthlyPeriod"];
+            new_loans: components["schemas"]["NewLoansSummary"];
+            installments_due: components["schemas"]["InstallmentsDueSummary"];
+            /** New Loans By Topic */
+            new_loans_by_topic: components["schemas"]["TopicBreakdownItem"][];
+            /** Top Borrowers */
+            top_borrowers: components["schemas"]["PersonAmountItem"][];
+            /** Top Lenders */
+            top_lenders: components["schemas"]["PersonAmountItem"][];
+        };
+        /** MonthlyPeriod */
+        MonthlyPeriod: {
+            /** Persian Year */
+            persian_year: number;
+            /** Persian Month */
+            persian_month: number;
+            /** Label Fa */
+            label_fa: string;
+        };
+        /** NewLoansSummary */
+        NewLoansSummary: {
+            /** Count */
+            count: number;
+            /** Total Amount */
+            total_amount: string;
+        };
+        /**
+         * OverdueInstallmentItem
+         * @description One overdue installment, fully denormalized for table display.
+         */
+        OverdueInstallmentItem: {
+            /** Installment Id */
+            installment_id: number;
+            /** Loan Id */
+            loan_id: number;
+            /** Loan Number */
+            loan_number: string;
+            /** Persian Year */
+            persian_year: number;
+            /** Topic Name */
+            topic_name: string;
+            borrower: components["schemas"]["PersonRef"];
+            lender: components["schemas"]["PersonRef"];
+            guarantor: components["schemas"]["PersonRef"] | null;
+            /** Due Persian Year */
+            due_persian_year: number;
+            /** Due Persian Month */
+            due_persian_month: number;
+            /** Due Day Of Month */
+            due_day_of_month: number;
+            /** Amount */
+            amount: string;
+            /** Days Overdue */
+            days_overdue: number;
+        };
         /** Page[DataIssueItem] */
         Page_DataIssueItem_: {
             /** Items */
@@ -507,6 +624,17 @@ export interface components {
             /** Page Size */
             page_size: number;
         };
+        /** Page[OverdueInstallmentItem] */
+        Page_OverdueInstallmentItem_: {
+            /** Items */
+            items: components["schemas"]["OverdueInstallmentItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
         /** Page[PersonListItem] */
         Page_PersonListItem_: {
             /** Items */
@@ -517,6 +645,15 @@ export interface components {
             page: number;
             /** Page Size */
             page_size: number;
+        };
+        /** PersonAmountItem */
+        PersonAmountItem: {
+            /** Person Id */
+            person_id: number;
+            /** Full Name */
+            full_name: string;
+            /** Total */
+            total: string;
         };
         /** PersonDetailResponse */
         PersonDetailResponse: {
@@ -624,6 +761,15 @@ export interface components {
             as_lender_paid: string;
             /** As Lender Remaining */
             as_lender_remaining: string;
+        };
+        /** TopicBreakdownItem */
+        TopicBreakdownItem: {
+            /** Topic Name */
+            topic_name: string;
+            /** Count */
+            count: number;
+            /** Total */
+            total: string;
         };
         /** TopicRef */
         TopicRef: {
@@ -750,6 +896,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoanDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overdue_api_installments_overdue_get: {
+        parameters: {
+            query?: {
+                min_days_overdue?: number;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OverdueInstallmentItem_"];
                 };
             };
             /** @description Validation Error */
@@ -981,6 +1160,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_DataIssueItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    monthly_api_analytics_monthly_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+                month?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonthlyAnalyticsResponse"];
                 };
             };
             /** @description Validation Error */
