@@ -21,6 +21,7 @@ from app.logging import configure_logging, get_logger
 from app.routers import issue as issue_router
 from app.routers import kpi as kpi_router
 from app.routers import loan as loan_router
+from app.routers import overdue as overdue_router
 from app.routers import person as person_router
 from app.routers import topic as topic_router
 
@@ -52,6 +53,7 @@ app.add_middleware(
 
 app.include_router(kpi_router.router)
 app.include_router(loan_router.router)
+app.include_router(overdue_router.router)
 app.include_router(person_router.router)
 app.include_router(topic_router.router)
 app.include_router(issue_router.router)
