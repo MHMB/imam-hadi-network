@@ -66,6 +66,20 @@ export function useIssues(params: Parameters<typeof api.issues>[0] = {}) {
   });
 }
 
+export function useOverdueInstallments(params: Parameters<typeof api.overdueInstallments>[0] = {}) {
+  return useQuery({
+    queryKey: ["overdue", params],
+    queryFn: () => api.overdueInstallments(params),
+  });
+}
+
+export function useMonthlyAnalytics(year?: number, month?: number) {
+  return useQuery({
+    queryKey: ["analytics", "monthly", year ?? null, month ?? null],
+    queryFn: () => api.monthlyAnalytics({ year, month }),
+  });
+}
+
 /** Status-poll hook: refetches every 1.5s while the row is non-terminal. */
 export function useImportPolling(id: number | null | undefined) {
   return useQuery({

@@ -31,7 +31,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     iconPath: "M4 6h16M4 12h16M4 18h7",
   },
   {
-    href: "/admin/imports",
+    href: "/admin",
     label: messages.navAdmin,
     iconPath: "M12 4v16m8-8H4",
   },

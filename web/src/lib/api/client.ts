@@ -24,6 +24,9 @@ export type LoanDetailResponse = Schemas["LoanDetailResponse"];
 export type DataIssueItem = Schemas["DataIssueItem"];
 export type ImportListItem = Schemas["ImportListItem"];
 export type ImportDetailResponse = Schemas["ImportDetailResponse"];
+export type OverdueInstallmentItem = Schemas["OverdueInstallmentItem"];
+export type PageOfOverdueInstallmentItem = Schemas["Page_OverdueInstallmentItem_"];
+export type MonthlyAnalyticsResponse = Schemas["MonthlyAnalyticsResponse"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
@@ -118,6 +121,13 @@ export const api = {
       page_size?: number;
     } = {},
   ) => getJson<Schemas["Page_DataIssueItem_"]>(`/issues${qs(params)}`),
+
+  overdueInstallments: (
+    params: { min_days_overdue?: number; page?: number; page_size?: number } = {},
+  ) => getJson<PageOfOverdueInstallmentItem>(`/installments/overdue${qs(params)}`),
+
+  monthlyAnalytics: (params: { year?: number; month?: number } = {}) =>
+    getJson<MonthlyAnalyticsResponse>(`/analytics/monthly${qs(params)}`),
 
   uploadImports: async (files: File[]): Promise<ImportListItem[]> => {
     const form = new FormData();
