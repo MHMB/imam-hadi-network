@@ -65,6 +65,7 @@ services:
       - "traefik.http.routers.imamhadi-api.entrypoints=websecure"
       - "traefik.http.routers.imamhadi-api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.imamhadi-api.middlewares=imamhadi-auth@docker,imamhadi-bodysize@docker"
+      - "traefik.http.routers.imamhadi-api.priority=10"
       - "traefik.http.services.imamhadi-api.loadbalancer.server.port=8000"
       # Auth middleware (shared with web router below)
       - "traefik.http.middlewares.imamhadi-auth.basicauth.users=${BASIC_AUTH_USERS}"
@@ -89,10 +90,9 @@ services:
       - "traefik.http.services.imamhadi-web.loadbalancer.server.port=3000"
       # Lower router priority so api's PathPrefix(/api) wins for /api/*
       - "traefik.http.routers.imamhadi-web.priority=1"
-      - "traefik.http.routers.imamhadi-api.priority=10"
 
   traefik:
-    image: traefik:v3.2
+    image: traefik:v3.7
     restart: unless-stopped
     command:
       - "--providers.docker=true"
