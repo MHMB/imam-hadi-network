@@ -47,6 +47,12 @@ services:
   api:
     image: ghcr.io/${GH_OWNER}/${GH_REPO}-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    # Run as the host owner (uid:gid 1000:1000) of the /opt/imamhadi/uploads
+    # bind mount below.  The image's build-time `app` user is uid 999, which
+    # cannot write to the 1000-owned host dir → xlsm uploads died with
+    # PermissionError on the tempfile in /uploads.  Pinning the runtime uid to
+    # the mount owner fixes it without a chmod on the host.
+    user: "1000:1000"
     depends_on:
       db: { condition: service_healthy }
     environment:
