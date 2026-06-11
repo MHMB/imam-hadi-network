@@ -55,8 +55,10 @@ async def test_imports_list_shape_after_one_import(seeded_client: AsyncClient) -
     item = body["items"][0]
     assert item["status"] == "success"
     assert sorted(item["years_imported"]) == [1404, 1405]
-    # Sample has 26 issues; 1 is severity=error (loan 2501 total_mismatch).
-    assert item["issue_count"] == 26
+    # Sample has 27 issues; 1 is severity=error (loan 2501 total_mismatch),
+    # incl. the impossible-date warning for سال 1404!AA23 (اسفند 1404/30 —
+    # a common year ends on the 29th).
+    assert item["issue_count"] == 27
     assert item["error_count"] == 1
 
 
@@ -82,7 +84,7 @@ async def test_issues_list_defaults_to_latest_import(seeded_client: AsyncClient)
     r = await seeded_client.get("/api/issues")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["total"] == 26
+    assert body["total"] == 27
 
 
 @pytest.mark.asyncio

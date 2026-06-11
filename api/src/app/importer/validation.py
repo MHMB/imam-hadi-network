@@ -24,6 +24,7 @@ from decimal import Decimal
 
 from app.importer.models import ParsedIssue, ParseResult
 from app.importer.names import resolve_key
+from app.jalali import last_day_of_month as last_day_of_jalali_month
 from app.models.enums import IssueCategory, IssueSeverity, LoanPartyRole
 
 MAX_DAY_OF_MONTH = 31
@@ -216,19 +217,35 @@ def _check_person_refs(
 def _check_installment_days(loan: object, result: ParseResult) -> None:
     for party in loan.parties:  # type: ignore[attr-defined]
         for inst in party.installments:
-            if not (MIN_DAY_OF_MONTH <= inst.due_day_of_month <= MAX_DAY_OF_MONTH):
-                _issue(
-                    result,
-                    severity=IssueSeverity.warning,
-                    category=IssueCategory.bad_day,
-                    message=(
-                        f"قرض #{loan.loan_number}: روز سررسید نامعتبر "  # type: ignore[attr-defined]
-                        f"({inst.due_day_of_month}) در سلول {inst.cell or '?'}."
-                    ),
-                    sheet=inst.sheet,
-                    cell=inst.cell,
-                    context={
-                        "loan_number": loan.loan_number,  # type: ignore[attr-defined]
-                        "day": inst.due_day_of_month,
-                    },
+            day = inst.due_day_of_month
+            if MIN_DAY_OF_MONTH <= day <= MAX_DAY_OF_MONTH:
+                # In 1..31 but possibly past the month's real end — e.g. the
+                # ledgers carry اسفند 30 of a common year.  The API clamps
+                # when doing calendar math; flag it so admins can fix the cell.
+                last = last_day_of_jalali_month(inst.due_persian_year, inst.due_persian_month)
+                if day <= last:
+                    continue
+                message = (
+                    f"قرض #{loan.loan_number}: روز سررسید {day} "  # type: ignore[attr-defined]
+                    f"در ماه {inst.due_persian_year}/{inst.due_persian_month} وجود ندارد "
+                    f"(آخرین روز: {last})؛ در محاسبات {last} در نظر گرفته می‌شود."
                 )
+            else:
+                message = (
+                    f"قرض #{loan.loan_number}: روز سررسید نامعتبر "  # type: ignore[attr-defined]
+                    f"({day}) در سلول {inst.cell or '?'}."
+                )
+            _issue(
+                result,
+                severity=IssueSeverity.warning,
+                category=IssueCategory.bad_day,
+                message=message,
+                sheet=inst.sheet,
+                cell=inst.cell,
+                context={
+                    "loan_number": loan.loan_number,  # type: ignore[attr-defined]
+                    "day": day,
+                    "month": inst.due_persian_month,
+                    "year": inst.due_persian_year,
+                },
+            )
