@@ -9,6 +9,15 @@ Contract:
   contributions / installments for **only** the years present in the
   file.  Persons and topics are upserted (never deleted) — they are
   global to the dashboard.
+- The workbook is the source of truth: person names referenced by loans
+  but missing from the افراد master are **auto-created** (identity =
+  normalised name key, see :mod:`app.importer.names`), and topic names
+  missing from موضوعات are auto-created too.  Nothing is dropped for
+  being unlisted; validation still surfaces every such case as an issue.
+- The same person lending to one loan on several rows (separate dated
+  contributions) is **merged into one ``LoanParty``** — amounts summed,
+  installments concatenated — satisfying the one-row-per-(loan, role,
+  person) schema invariant without losing any repayment detail.
 - Single transaction per import.  Either everything for that import
   lands, or nothing.  ``DataIssue`` rows are written in the same tx.
 """
@@ -16,12 +25,15 @@ Contract:
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.importer.models import ParsedLoan, ParsedPerson, ParseResult
+from app.importer.models import ParsedInstallment, ParsedLoan, ParsedPerson, ParseResult
+from app.importer.names import canonical_name, placeholder_phone, resolve_key
 from app.models import (
     DataIssue,
     Import,
@@ -32,7 +44,7 @@ from app.models import (
     Person,
     PersonGuarantor,
 )
-from app.models.enums import ImportStatus
+from app.models.enums import ImportStatus, LoanPartyRole
 
 
 def sha256_of_file(path: Path) -> str:
@@ -57,17 +69,19 @@ async def write_parse_result(
     sha256: str,
     duration_ms: int,
     result: ParseResult,
-) -> Import:
+) -> tuple[Import, bool]:
     """Persist a parsed workbook in one transaction.
 
     Caller already ran ``validate(result)``; this function does the
     sha-dedup short-circuit and the per-year-scoped replace.  Returns
-    the persisted (or pre-existing) ``Import`` row.
+    the persisted (or pre-existing) ``Import`` row plus a ``deduped``
+    flag — ``True`` when the sha short-circuit fired and nothing was
+    written.
     """
     # --- sha-dedup ---
     existing = await _existing_import_for(session, sha256)
     if existing is not None and existing.status is ImportStatus.success:
-        return existing
+        return existing, True
 
     years = sorted({loan.persian_year for loan in result.loans})
     import_row = Import(
@@ -82,7 +96,7 @@ async def write_parse_result(
     await session.flush()  # need import_row.id for FK on loans + issues
     await _apply_parse_result(session, import_row, result)
     await session.commit()
-    return import_row
+    return import_row, False
 
 
 async def apply_to_existing_import(
@@ -121,8 +135,17 @@ async def _apply_parse_result(
     Caller has already created/loaded ``import_row`` (with ``id`` populated)
     and is responsible for the surrounding transaction (``session.commit``).
     """
-    topic_id_by_name = await _upsert_topics(session, result.topics)
-    person_id_by_name = await _upsert_persons(session, result.persons)
+    # Topics: the موضوعات catalog plus any name a loan actually references —
+    # year sheets are authoritative, so an uncatalogued topic is created,
+    # not a reason to drop the loan.
+    topic_names = list(result.topics)
+    for loan in result.loans:
+        if loan.topic_name and loan.topic_name not in topic_names:
+            topic_names.append(loan.topic_name)
+    topic_id_by_name = await _upsert_topics(session, topic_names)
+
+    person_id_by_key = await _upsert_persons(session, result.persons)
+    await _ensure_referenced_persons(session, result.loans, person_id_by_key)
 
     years = sorted({loan.persian_year for loan in result.loans})
     if years:
@@ -132,7 +155,7 @@ async def _apply_parse_result(
         result.loans,
         import_id=import_row.id,
         topic_ids=topic_id_by_name,
-        person_ids=person_id_by_name,
+        person_ids=person_id_by_key,
     )
 
     for issue in result.issues:
@@ -189,7 +212,13 @@ async def _upsert_persons(
     session: AsyncSession,
     parsed: list[ParsedPerson],
 ) -> dict[str, int]:
-    """Insert / refresh persons by phone (canonical); return name → id."""
+    """Insert / refresh the افراد master persons; return identity-key → id.
+
+    Person rows are matched by canonical phone (real numbers and the
+    hash-derived placeholders are both stable), but the *returned* mapping
+    is keyed by :func:`app.importer.names.resolve_key` so loan references
+    in any spelling variant resolve to the right row.
+    """
     if not parsed:
         return {}
 
@@ -197,7 +226,7 @@ async def _upsert_persons(
     existing = await session.execute(select(Person).where(Person.phone.in_(phones)))
     by_phone: dict[str, Person] = {row.phone: row for row in existing.scalars()}
 
-    by_name: dict[str, int] = {}
+    by_key: dict[str, int] = {}
     for parsed_p in parsed:
         row = by_phone.get(parsed_p.phone_canonical)
         if row is None:
@@ -210,6 +239,11 @@ async def _upsert_persons(
             )
             session.add(row)
             await session.flush()
+            # Register the insert: the master sheet itself can list one person
+            # twice under spelling variants (same identity key → same
+            # placeholder phone); the second occurrence must refresh, not
+            # double-insert.
+            by_phone[parsed_p.phone_canonical] = row
         else:
             # Refresh descriptive fields; never demote verification.
             row.full_name = parsed_p.full_name
@@ -217,14 +251,14 @@ async def _upsert_persons(
             row.messenger = parsed_p.messenger or row.messenger
             if parsed_p.is_verified:
                 row.is_verified = True
-        by_name[parsed_p.full_name] = row.id
+        by_key[resolve_key(parsed_p.full_name)] = row.id
 
     # --- guarantor links: drop and re-insert per person ---
     # Use synchronize_session=False so SQLAlchemy doesn't try to reconcile the
     # delete with already-tracked Person.guarantor_links relationship state
     # (it would try to NULL the PK person_guarantor.person_id otherwise).
     for parsed_p in parsed:
-        pid = by_name[parsed_p.full_name]
+        pid = by_key[resolve_key(parsed_p.full_name)]
         await session.execute(
             delete(PersonGuarantor)
             .where(PersonGuarantor.person_id == pid)
@@ -232,9 +266,9 @@ async def _upsert_persons(
         )
     await session.flush()  # commit the deletes before re-inserting
     for parsed_p in parsed:
-        pid = by_name[parsed_p.full_name]
+        pid = by_key[resolve_key(parsed_p.full_name)]
         for link in parsed_p.guarantor_links:
-            guarantor_id = by_name.get(link.guarantor_name)
+            guarantor_id = by_key.get(resolve_key(link.guarantor_name))
             if guarantor_id is None or guarantor_id == pid:
                 # Unresolved guarantor (or self-reference) — silently skip; the
                 # validation layer already emits an unresolved_person warning
@@ -242,7 +276,57 @@ async def _upsert_persons(
                 continue
             session.add(PersonGuarantor(person_id=pid, role=link.role, guarantor_id=guarantor_id))
 
-    return by_name
+    return by_key
+
+
+async def _ensure_referenced_persons(
+    session: AsyncSession,
+    parsed_loans: list[ParsedLoan],
+    person_ids: dict[str, int],
+) -> None:
+    """Auto-create persons the year sheets reference but افراد doesn't list.
+
+    The workbook is the source of truth — a borrower / lender / guarantor
+    name that resolves to no master row still names a real party, so it
+    becomes a Person with a placeholder phone.  Spelling variants collapse
+    onto one row via the identity key; the first-seen (alias-canonicalised)
+    spelling is kept as the display name.  Validation has already flagged
+    every such name as an ``unresolved_person`` warning for admin follow-up.
+    """
+    missing: dict[str, str] = {}  # key → display name
+    for loan in parsed_loans:
+        names = [loan.guarantor_name] + [p.person_name for p in loan.parties]
+        for name in names:
+            if not name:
+                continue
+            key = resolve_key(name)
+            if not key or key in person_ids or key in missing:
+                continue
+            missing[key] = canonical_name(name)
+
+    # Re-imports find previously auto-created rows by their stable
+    # placeholder phone (a hash of the identity key).
+    if not missing:
+        return
+    placeholder_by_key = {key: placeholder_phone(name) for key, name in missing.items()}
+    existing = await session.execute(
+        select(Person).where(Person.phone.in_(list(placeholder_by_key.values())))
+    )
+    phone_to_person = {row.phone: row for row in existing.scalars()}
+
+    for key, name in missing.items():
+        row = phone_to_person.get(placeholder_by_key[key])
+        if row is None:
+            row = Person(
+                phone=placeholder_by_key[key],
+                full_name=name,
+                phone_raw=None,
+                messenger=None,
+                is_verified=False,
+            )
+            session.add(row)
+            await session.flush()
+        person_ids[key] = row.id
 
 
 async def _delete_year_scoped(session: AsyncSession, years: list[int]) -> None:
@@ -261,11 +345,14 @@ async def _insert_loans(
     for parsed_loan in parsed_loans:
         topic_id = topic_ids.get(parsed_loan.topic_name)
         if topic_id is None:
-            # Topic was missing — surfaced by validate(); skip so the import
-            # still lands the rest of the data.
+            # Unreachable after the referenced-topic upsert; kept as a guard
+            # so a future regression skips one loan instead of crashing the
+            # whole transaction.
             continue
         guarantor_id = (
-            person_ids.get(parsed_loan.guarantor_name) if parsed_loan.guarantor_name else None
+            person_ids.get(resolve_key(parsed_loan.guarantor_name))
+            if parsed_loan.guarantor_name
+            else None
         )
         loan_row = Loan(
             persian_year=parsed_loan.persian_year,
@@ -281,23 +368,20 @@ async def _insert_loans(
         session.add(loan_row)
         await session.flush()
 
-        for parsed_party in parsed_loan.parties:
-            party_pid = person_ids.get(parsed_party.person_name)
-            if party_pid is None:
-                # Lender / borrower name doesn't resolve; skip the party but
-                # don't fail the import — the issue is already in the report.
-                continue
+        for person_id, role, amount, display_order, installments in _merged_parties(
+            parsed_loan, person_ids
+        ):
             party_row = LoanParty(
                 loan_id=loan_row.id,
-                person_id=party_pid,
-                role=parsed_party.role,
-                amount=parsed_party.amount,
-                display_order=parsed_party.display_order,
+                person_id=person_id,
+                role=role,
+                amount=amount,
+                display_order=display_order,
             )
             session.add(party_row)
             await session.flush()
 
-            for inst in parsed_party.installments:
+            for inst in installments:
                 session.add(
                     Installment(
                         loan_party_id=party_row.id,
@@ -308,3 +392,53 @@ async def _insert_loans(
                         status=inst.status,
                     )
                 )
+
+
+@dataclass(slots=True)
+class _PartyAccumulator:
+    """Mutable per-(person, role) rollup used by ``_merged_parties``."""
+
+    amount: Decimal
+    display_order: int
+    installments: list[ParsedInstallment]
+
+
+def _merged_parties(
+    parsed_loan: ParsedLoan,
+    person_ids: dict[str, int],
+) -> list[tuple[int, LoanPartyRole, Decimal, int, tuple[ParsedInstallment, ...]]]:
+    """Collapse a loan's parties onto unique (person, role) slots.
+
+    The ledgers record one row per *contribution*, and the same lender
+    often contributed to one loan several times (the pooled loans reach
+    74 rows for a single lender).  The schema's ``unique_role_person``
+    means one party per (loan, role, person): amounts are summed and the
+    dated installments concatenated, so no repayment detail is lost.
+
+    Parties whose name doesn't resolve (blank lender cells — the engine
+    already issued a warning) or whose merged amount isn't positive (DB
+    ``CHECK amount > 0``) are skipped.
+    """
+    merged: dict[tuple[int, LoanPartyRole], _PartyAccumulator] = {}
+    for party in parsed_loan.parties:
+        person_id = person_ids.get(resolve_key(party.person_name)) if party.person_name else None
+        if person_id is None:
+            continue
+        slot = (person_id, party.role)
+        acc = merged.get(slot)
+        if acc is None:
+            merged[slot] = _PartyAccumulator(
+                amount=party.amount,
+                display_order=party.display_order,
+                installments=list(party.installments),
+            )
+            continue
+        acc.amount += party.amount
+        acc.display_order = min(acc.display_order, party.display_order)
+        acc.installments.extend(party.installments)
+
+    return [
+        (person_id, role, acc.amount, acc.display_order, tuple(acc.installments))
+        for (person_id, role), acc in merged.items()
+        if acc.amount > 0
+    ]

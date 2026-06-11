@@ -17,7 +17,7 @@ import openpyxl
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-from app.importer.models import ParseResult
+from app.importer.models import ParsedIssue, ParseResult
 from app.importer.parsers import detect_year_sheets, year_parser_for
 from app.importer.parsers.people import parse_people
 from app.importer.parsers.topics import parse_topics
@@ -25,7 +25,7 @@ from app.importer.validation import validate
 from app.importer.writer import sha256_of_file, write_parse_result
 from app.logging import get_logger
 from app.models import Import
-from app.models.enums import ImportStatus
+from app.models.enums import ImportStatus, IssueCategory, IssueSeverity
 
 log = get_logger(__name__)
 
@@ -63,8 +63,22 @@ def parse_workbook(path: Path) -> ParseResult:
         parse_people(wb["افراد"], result)
 
     for year, sheet_name in detect_year_sheets(wb):
+        try:
+            parser = year_parser_for(year)
+        except LookupError:
+            # Unknown layout (pre-1401 sheet): parsing nothing is safer than
+            # misparsing.  No loans → the writer's year-scoped replace leaves
+            # any existing data for that year untouched.
+            result.issues.append(
+                ParsedIssue(
+                    severity=IssueSeverity.error,
+                    category=IssueCategory.orphan_row,
+                    message=(f"شیت «{sheet_name}» قالب شناخته‌شده‌ای ندارد و وارد نشد."),
+                    sheet=sheet_name,
+                )
+            )
+            continue
         result.years_present.append(year)
-        parser = year_parser_for(year)
         parser(wb[sheet_name], year, result)
 
     return result
@@ -142,20 +156,13 @@ async def run_import(
             deduped=False,
         )
 
-    pre_write = time.monotonic()
-    import_row = await write_parse_result(
+    import_row, deduped = await write_parse_result(
         session,
         source_path=path,
         sha256=sha,
         duration_ms=duration_ms,
         result=result,
     )
-    write_ms = int((time.monotonic() - pre_write) * 1000)
-    # A write that took less than this and whose persisted duration_ms differs
-    # from the one we just measured must be a sha-dedup short-circuit (we
-    # returned an existing Import row, no INSERTs ran).
-    _DEDUP_WRITE_THRESHOLD_MS = 50
-    deduped = write_ms < _DEDUP_WRITE_THRESHOLD_MS and import_row.duration_ms != duration_ms
     total_ms = int((time.monotonic() - started) * 1000)
 
     log.info(

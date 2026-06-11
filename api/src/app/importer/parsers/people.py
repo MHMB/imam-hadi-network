@@ -28,6 +28,7 @@ import unicodedata
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.importer.models import ParsedGuarantorLink, ParsedIssue, ParsedPerson, ParseResult
+from app.importer.names import placeholder_phone
 from app.importer.phone import canonicalize
 from app.models.enums import GuarantorRole, IssueCategory, IssueSeverity
 
@@ -61,12 +62,15 @@ def _normalise_name(value: object) -> str:
 
 
 def _placeholder_phone(name: str) -> str:
-    """Synthetic phone for sample rows where the real one is blank.
+    """Synthetic phone for rows where the real one is blank.
 
-    Use a clearly-fake international prefix so it can never collide with
-    a real Iranian number and the issues page can pattern-match for it.
+    Delegates to :func:`app.importer.names.placeholder_phone` — a hash of
+    the person's identity key, so spelling variants of one name map to the
+    same placeholder and long Persian names stay inside ``String(32)``.
+    The ``+0__`` prefix can never collide with a real Iranian number and
+    the issues page pattern-matches on it.
     """
-    return f"+0__{name}__"
+    return placeholder_phone(name)
 
 
 def parse_people(ws: Worksheet, result: ParseResult) -> None:
