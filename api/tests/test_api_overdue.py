@@ -76,6 +76,28 @@ def test_days_overdue_returns_zero_on_same_day() -> None:
     assert _days_overdue(today, today) == 0
 
 
+def test_days_overdue_clamps_impossible_legacy_dates() -> None:
+    # The real ledgers contain اسفند 30 of common years (e.g. 1402/12/30 ×24
+    # in production), which doesn't exist — اسفند 1402 ends on the 29th.
+    # Must clamp and diff, not raise.
+    due = (1402, 12, 30)  # invalid: 1402 is a common year
+    today = (1403, 1, 5)
+    expected = (
+        jdatetime.date(1403, 1, 5).togregorian() - jdatetime.date(1402, 12, 29).togregorian()
+    ).days
+    assert _days_overdue(due, today) == expected
+
+
+def test_days_overdue_keeps_valid_leap_year_esfand_30() -> None:
+    # 1403 IS a leap year — اسفند 30 exists and must not be clamped.
+    due = (1403, 12, 30)
+    today = (1404, 1, 2)
+    expected = (
+        jdatetime.date(1404, 1, 2).togregorian() - jdatetime.date(1403, 12, 30).togregorian()
+    ).days
+    assert _days_overdue(due, today) == expected
+
+
 # --- integration ---
 
 

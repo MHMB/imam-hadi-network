@@ -274,6 +274,46 @@ def test_bad_day_emits_warning() -> None:
     assert any(i.category is IssueCategory.bad_day for i in result.issues)
 
 
+def test_bad_day_flags_impossible_jalali_date() -> None:
+    """Day in 1..31 but past the month's real end (اسفند 30, common year)."""
+    impossible = _inst(1402, 12, 30, Decimal(10))  # 1402 is a common year
+    result = ParseResult(
+        topics=["درمان"],
+        persons=[_person("A"), _person("B")],
+        loans=[
+            _loan(
+                number="1500",
+                total=Decimal(10),
+                topic="درمان",
+                borrower=_borrower("A", Decimal(10)),
+                lenders=[_lender("B", Decimal(10), (impossible,))],
+            )
+        ],
+    )
+    validate(result)
+    assert any(i.category is IssueCategory.bad_day for i in result.issues)
+
+
+def test_bad_day_accepts_leap_year_esfand_30() -> None:
+    """اسفند 30 of a leap year (1403) is a real date — no issue."""
+    valid = _inst(1403, 12, 30, Decimal(10))
+    result = ParseResult(
+        topics=["درمان"],
+        persons=[_person("A"), _person("B")],
+        loans=[
+            _loan(
+                number="1500",
+                total=Decimal(10),
+                topic="درمان",
+                borrower=_borrower("A", Decimal(10)),
+                lenders=[_lender("B", Decimal(10), (valid,))],
+            )
+        ],
+    )
+    validate(result)
+    assert not any(i.category is IssueCategory.bad_day for i in result.issues)
+
+
 # --------------------------------------------------------------------- integration
 
 

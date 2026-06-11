@@ -15,6 +15,7 @@ from sqlalchemy import and_, func, literal, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from app.jalali import safe_date as safe_jalali_date
 from app.models import Installment, Loan, LoanParty, LoanTopic, Person
 from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.overdue import OverdueInstallmentItem
@@ -31,10 +32,13 @@ def _days_overdue(due: tuple[int, int, int], today: tuple[int, int, int]) -> int
     """Difference in days between today and `due` (Jalali triples).
 
     Converts both to gregorian and subtracts.  Guaranteed ≥ 0 for caller
-    use because callers only invoke with `due < today`.
+    use because callers only invoke with `due < today`.  Impossible
+    legacy due-days (e.g. اسفند 30 of a common year — present in the real
+    ledgers) are clamped to the month's last day instead of raising and
+    500ing the whole listing.
     """
-    due_g = jdatetime.date(*due).togregorian()
-    today_g = jdatetime.date(*today).togregorian()
+    due_g = safe_jalali_date(*due).togregorian()
+    today_g = safe_jalali_date(*today).togregorian()
     diff = (today_g - due_g).days
     return int(max(diff, 0))
 
