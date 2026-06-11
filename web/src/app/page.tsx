@@ -77,9 +77,7 @@ export default function HomePage() {
           {/* Monthly money circulation — whole history */}
           {circulation.data && circulation.data.months.length > 0 && (
             <Card>
-              <h2 className="text-base font-semibold text-slate-900">
-                {messages.homeCirculation}
-              </h2>
+              <h2 className="text-base font-semibold text-slate-900">{messages.homeCirculation}</h2>
               <p className="mb-3 mt-0.5 text-xs text-slate-500">{messages.homeCirculationHint}</p>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
