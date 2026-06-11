@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from app.db import SessionDep
-from app.schemas.analytics import MonthlyAnalyticsResponse
-from app.services.analytics import get_monthly_analytics
+from app.schemas.analytics import CirculationResponse, MonthlyAnalyticsResponse
+from app.services.analytics import get_circulation, get_monthly_analytics
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
@@ -22,3 +22,12 @@ async def monthly(
     month: int | None = Query(default=None, ge=1, le=12),
 ) -> MonthlyAnalyticsResponse:
     return await get_monthly_analytics(session, year=year, month=month)
+
+
+@router.get(
+    "/circulation",
+    response_model=CirculationResponse,
+    summary="Whole-history monthly money circulation (installments due vs paid)",
+)
+async def circulation(session: SessionDep) -> CirculationResponse:
+    return await get_circulation(session)

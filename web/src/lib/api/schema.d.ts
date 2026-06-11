@@ -208,6 +208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/analytics/circulation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whole-history monthly money circulation (installments due vs paid) */
+        get: operations["circulation_api_analytics_circulation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -259,6 +276,34 @@ export interface components {
              * @description One or more .xlsm files
              */
             files: string[];
+        };
+        /**
+         * CirculationMonth
+         * @description One Jalali month of repayment flow (lender-side installments due).
+         */
+        CirculationMonth: {
+            /** Persian Year */
+            persian_year: number;
+            /** Persian Month */
+            persian_month: number;
+            /** Label Fa */
+            label_fa: string;
+            /** Count */
+            count: number;
+            /** Amount Total */
+            amount_total: string;
+            /** Amount Paid */
+            amount_paid: string;
+            /** Amount Unpaid */
+            amount_unpaid: string;
+        };
+        /**
+         * CirculationResponse
+         * @description Whole-history monthly money circulation, oldest month first.
+         */
+        CirculationResponse: {
+            /** Months */
+            months: components["schemas"]["CirculationMonth"][];
         };
         /** DataIssueItem */
         DataIssueItem: {
@@ -1201,6 +1246,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    circulation_api_analytics_circulation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CirculationResponse"];
                 };
             };
         };

@@ -147,3 +147,52 @@ async def test_installments_due_paid_unpaid_split_sums_to_total(
     if float(summary["amount_total"]) > 0:
         expected_rate = float(summary["amount_paid"]) / float(summary["amount_total"]) * 100
         assert abs(summary["payment_rate_pct"] - round(expected_rate, 2)) < 0.01
+
+
+@pytest.mark.asyncio
+async def test_top_lists_use_due_month_not_import_time(seeded_client: AsyncClient) -> None:
+    """Top borrowers/lenders come from installments DUE in the month.
+
+    Regression: these used to filter by loan.created_at (= import time), so
+    every historical month rendered «موردی یافت نشد» on the analytics page.
+    Sample loan 1500 has an installment due 1404/06 → both lists non-empty.
+    """
+    body = (await seeded_client.get("/api/analytics/monthly?year=1404&month=6")).json()
+    assert body["top_lenders"], "lenders with installments due 1404/06 expected"
+    assert body["top_borrowers"], "borrowers of those loans expected"
+    for item in body["top_lenders"] + body["top_borrowers"]:
+        assert set(item) == {"person_id", "full_name", "total"}
+        assert float(item["total"]) > 0
+    # Worst-first ordering.
+    lender_totals = [float(i["total"]) for i in body["top_lenders"]]
+    assert lender_totals == sorted(lender_totals, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_circulation_shape_and_consistency(seeded_client: AsyncClient) -> None:
+    r = await seeded_client.get("/api/analytics/circulation")
+    assert r.status_code == 200, r.text
+    months = r.json()["months"]
+    assert months, "sample data spans many due months"
+    prev = None
+    for m in months:
+        assert set(m) == {
+            "persian_year",
+            "persian_month",
+            "label_fa",
+            "count",
+            "amount_total",
+            "amount_paid",
+            "amount_unpaid",
+        }
+        assert float(m["amount_paid"]) + float(m["amount_unpaid"]) == float(m["amount_total"])
+        key = (m["persian_year"], m["persian_month"])
+        if prev is not None:
+            assert key > prev, "months must be ordered oldest-first"
+        prev = key
+
+    # Cross-check one month against the monthly endpoint.
+    target = next(m for m in months if (m["persian_year"], m["persian_month"]) == (1404, 6))
+    monthly = (await seeded_client.get("/api/analytics/monthly?year=1404&month=6")).json()
+    assert float(target["amount_total"]) == float(monthly["installments_due"]["amount_total"])
+    assert target["count"] == monthly["installments_due"]["count"]
