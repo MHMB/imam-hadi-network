@@ -8,6 +8,7 @@ import openpyxl
 import pytest
 
 from app.importer.models import ParseResult
+from app.importer.names import placeholder_phone
 from app.importer.parsers.people import parse_people
 from app.importer.parsers.topics import parse_topics
 from app.models.enums import GuarantorRole, IssueCategory, IssueSeverity
@@ -61,10 +62,16 @@ def test_parse_people_counts_match_sample(wb: openpyxl.Workbook) -> None:
 def test_parse_people_phone_placeholder_when_blank(wb: openpyxl.Workbook) -> None:
     result = ParseResult()
     parse_people(wb["افراد"], result)
-    # All sample rows have blank phone → all should fall back to placeholders
+    # All sample rows have blank phone → all should fall back to placeholders:
+    # deterministic per name, marked with the +0__ prefix, and short enough
+    # for the String(32) phone column regardless of name length.
     for p in result.persons:
+        assert p.phone_canonical == placeholder_phone(p.full_name)
         assert p.phone_canonical.startswith("+0__"), f"unexpected phone {p.phone_canonical}"
-        assert p.phone_canonical.endswith("__")
+        assert len(p.phone_canonical) <= 32
+    # Distinct names must never collide on one placeholder.
+    placeholders = [p.phone_canonical for p in result.persons]
+    assert len(set(placeholders)) == len(placeholders)
 
 
 def test_parse_people_emits_unknown_phone_warnings(wb: openpyxl.Workbook) -> None:

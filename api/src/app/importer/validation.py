@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 
 from app.importer.models import ParsedIssue, ParseResult
+from app.importer.names import resolve_key
 from app.models.enums import IssueCategory, IssueSeverity, LoanPartyRole
 
 MAX_DAY_OF_MONTH = 31
@@ -34,15 +35,20 @@ def validate(result: ParseResult) -> None:
 
     Order of checks is intentional — catalog/identity checks first so
     later loan-level issues can carry useful "did you mean..." context.
+
+    Person references are compared via :func:`app.importer.names.resolve_key`
+    — the same identity the writer uses — so spelling variants of a master
+    row don't false-positive.  Names flagged here still land (the writer
+    auto-creates them); the warning tells admins what to add to افراد.
     """
     topic_names = set(result.topics)
-    person_names = {p.full_name for p in result.persons}
+    person_keys = {resolve_key(p.full_name) for p in result.persons}
 
     _check_duplicate_phones(result)
     for loan in result.loans:
         _check_loan_totals(loan, result)
         _check_topic_resolved(loan, result, topic_names)
-        _check_person_refs(loan, result, person_names)
+        _check_person_refs(loan, result, person_keys)
         _check_installment_days(loan, result)
 
 
@@ -183,15 +189,15 @@ def _check_topic_resolved(
 def _check_person_refs(
     loan: object,
     result: ParseResult,
-    person_names: set[str],
+    person_keys: set[str],
 ) -> None:
     refs: dict[str, list[str]] = defaultdict(list)
-    if loan.guarantor_name and loan.guarantor_name not in person_names:  # type: ignore[attr-defined]
+    if loan.guarantor_name and resolve_key(loan.guarantor_name) not in person_keys:  # type: ignore[attr-defined]
         refs[loan.guarantor_name].append("ضامن")  # type: ignore[attr-defined]
     for party in loan.parties:  # type: ignore[attr-defined]
         if not party.person_name:
             continue
-        if party.person_name not in person_names:
+        if resolve_key(party.person_name) not in person_keys:
             refs[party.person_name].append(party.role.value)
     for name, roles in refs.items():
         _issue(

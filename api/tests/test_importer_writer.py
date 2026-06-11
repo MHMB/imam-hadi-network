@@ -92,7 +92,7 @@ async def test_first_import_writes_everything(
 ) -> None:
     result = _parse_full(sample_xlsm_path)
     sha = sha256_of_file(sample_xlsm_path)
-    imp = await write_parse_result(
+    imp, _deduped = await write_parse_result(
         session,
         source_path=sample_xlsm_path,
         sha256=sha,
@@ -143,7 +143,7 @@ async def test_sha_dedup_returns_existing_import(
 ) -> None:
     result = _parse_full(sample_xlsm_path)
     sha = sha256_of_file(sample_xlsm_path)
-    first = await write_parse_result(
+    first, first_deduped = await write_parse_result(
         session,
         source_path=sample_xlsm_path,
         sha256=sha,
@@ -151,7 +151,7 @@ async def test_sha_dedup_returns_existing_import(
         result=result,
     )
     # Second call with same sha — must return the same row, no new Import.
-    second = await write_parse_result(
+    second, second_deduped = await write_parse_result(
         session,
         source_path=sample_xlsm_path,
         sha256=sha,
@@ -159,6 +159,8 @@ async def test_sha_dedup_returns_existing_import(
         result=result,
     )
     assert second.id == first.id
+    assert first_deduped is False
+    assert second_deduped is True
     n_imports = (await session.execute(select(func.count()).select_from(Import))).scalar_one()
     assert n_imports == 1
 
@@ -171,7 +173,7 @@ async def test_reimport_replaces_only_present_years(
     # 1) Seed with the full sample (1404 + 1405).
     full = _parse_full(sample_xlsm_path)
     sha_full = sha256_of_file(sample_xlsm_path)
-    await write_parse_result(
+    _imp, _dedup = await write_parse_result(
         session,
         source_path=sample_xlsm_path,
         sha256=sha_full,
@@ -191,7 +193,7 @@ async def test_reimport_replaces_only_present_years(
     # doesn't fire and we actually re-execute the writer.
     fake_path = sample_xlsm_path.with_name("sample-1404-only.xlsm")
     fake_sha = "0" * 64
-    await write_parse_result(
+    _imp, _dedup = await write_parse_result(
         session,
         source_path=fake_path,
         sha256=fake_sha,
@@ -211,3 +213,148 @@ async def test_reimport_replaces_only_present_years(
         (await session.execute(select(Loan).where(Loan.persian_year == 1404))).scalars().all()
     )
     assert all(ln.import_id != loans_1405_after[0].import_id for ln in loans_1404)
+
+
+# --------------------------------------------------------------- real-data behaviours
+
+
+def _synthetic_result() -> ParseResult:
+    """A hand-built ParseResult mirroring the real workbook's hard cases:
+
+    - the same lender contributing to one loan on several rows (the pattern
+      that violated ``unique_role_person`` on the first production import);
+    - lender names that are spelling variants of one person;
+    - a lender that is missing from the افراد master entirely.
+    """
+    from app.importer.models import ParsedInstallment, ParsedLoan, ParsedParty, ParsedPerson
+    from app.importer.names import placeholder_phone
+    from app.models.enums import InstallmentStatus
+
+    def inst(month: int, amount: int) -> ParsedInstallment:
+        return ParsedInstallment(
+            due_persian_year=1403,
+            due_persian_month=month,
+            due_day_of_month=1,
+            amount=Decimal(amount),
+            status=InstallmentStatus.unpaid,
+        )
+
+    result = ParseResult()
+    result.topics = ["نامعلوم"]
+    result.persons = [
+        ParsedPerson(
+            full_name="سیدساجد موسوی",
+            phone_canonical=placeholder_phone("سیدساجد موسوی"),
+            phone_raw=None,
+        ),
+        ParsedPerson(
+            full_name="قرض‌گیرنده الف",
+            phone_canonical=placeholder_phone("قرض‌گیرنده الف"),
+            phone_raw=None,
+        ),
+    ]
+    result.loans = [
+        ParsedLoan(
+            persian_year=1403,
+            loan_number="795",
+            total_amount=Decimal(9),
+            topic_name="نامعلوم",
+            parties=(
+                ParsedParty(
+                    role=LoanPartyRole.borrower,
+                    person_name="قرض‌گیرنده الف",
+                    amount=Decimal(9),
+                    display_order=0,
+                ),
+                # Same person, three contribution rows, two spellings.
+                ParsedParty(
+                    role=LoanPartyRole.lender,
+                    person_name="سیدساجد موسوی",
+                    amount=Decimal(4),
+                    display_order=0,
+                    installments=(inst(1, 4),),
+                ),
+                ParsedParty(
+                    role=LoanPartyRole.lender,
+                    person_name="سیدساجدموسوی",  # no-space variant
+                    amount=Decimal(3),
+                    display_order=1,
+                    installments=(inst(2, 3),),
+                ),
+                # A lender the افراد master never listed.
+                ParsedParty(
+                    role=LoanPartyRole.lender,
+                    person_name="مامانجون",
+                    amount=Decimal(2),
+                    display_order=2,
+                    installments=(inst(3, 2),),
+                ),
+            ),
+        ),
+    ]
+    return result
+
+
+@pytest.mark.asyncio
+async def test_repeat_lender_rows_merge_into_one_party(session: AsyncSession) -> None:
+    """Multiple dated contributions by one lender → one LoanParty, summed
+    amount, all installments kept — never a unique_role_person violation."""
+    from app.models import Installment
+
+    result = _synthetic_result()
+    _imp, _dedup = await write_parse_result(
+        session,
+        source_path=Path("synthetic.xlsm"),
+        sha256="f" * 64,
+        duration_ms=1,
+        result=result,
+    )
+
+    loan = (await session.execute(select(Loan).where(Loan.loan_number == "795"))).scalar_one()
+    lenders = (
+        (
+            await session.execute(
+                select(LoanParty).where(
+                    LoanParty.loan_id == loan.id, LoanParty.role == LoanPartyRole.lender
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(lenders) == 2  # موسوی (merged ×2) + مامانجون
+
+    by_amount = {p.amount: p for p in lenders}
+    merged = by_amount[Decimal(7)]  # 4 + 3 across the two spelling variants
+    insts = (
+        (await session.execute(select(Installment).where(Installment.loan_party_id == merged.id)))
+        .scalars()
+        .all()
+    )
+    assert sorted(i.amount for i in insts) == [Decimal(3), Decimal(4)]
+
+
+@pytest.mark.asyncio
+async def test_unlisted_lender_is_auto_created(session: AsyncSession) -> None:
+    """Names referenced by loans but absent from افراد become Person rows."""
+    result = _synthetic_result()
+    _imp, _dedup = await write_parse_result(
+        session,
+        source_path=Path("synthetic.xlsm"),
+        sha256="e" * 64,
+        duration_ms=1,
+        result=result,
+    )
+    person = (
+        await session.execute(select(Person).where(Person.full_name == "مامانجون"))
+    ).scalar_one()
+    assert person.phone.startswith("+0__")
+    assert person.is_verified is False
+
+    # Spelling variants must NOT have created a second موسوی row.
+    mousavi_count = (
+        await session.execute(
+            select(func.count()).select_from(Person).where(Person.full_name.like("%موسوی%"))
+        )
+    ).scalar_one()
+    assert mousavi_count == 1
