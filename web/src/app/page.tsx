@@ -19,10 +19,12 @@ import { Card, KpiCard } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
+import { isFutureMonth, todayJalali } from "@/lib/jalali";
 import { useCirculation, useKpi, useTopics } from "@/lib/query/hooks";
 
 const PAID_COLOR = "#16a34a";
 const UNPAID_COLOR = "#dc2626";
+const SCHEDULED_COLOR = "#94a3b8"; // slate-400 — future months: not late, just not due yet
 const YEAR_BAR_COLOR = "#0f172a";
 const TOPIC_COLORS = [
   "#0f172a",
@@ -43,6 +45,7 @@ export default function HomePage() {
   const { data, isLoading, isError } = useKpi();
   const circulation = useCirculation();
   const topics = useTopics();
+  const today = todayJalali();
 
   return (
     <section className="space-y-6">
@@ -82,11 +85,19 @@ export default function HomePage() {
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={circulation.data.months.map((m) => ({
-                      label: m.label_fa,
-                      paid: Number(m.amount_paid),
-                      unpaid: Number(m.amount_unpaid),
-                    }))}
+                    data={circulation.data.months.map((m) => {
+                      // Unpaid in a month that hasn't arrived yet is a
+                      // scheduled installment, not an outstanding one —
+                      // never paint the future red.
+                      const future = isFutureMonth(m.persian_year, m.persian_month, today);
+                      const unpaid = Number(m.amount_unpaid);
+                      return {
+                        label: m.label_fa,
+                        paid: Number(m.amount_paid),
+                        unpaid: future ? 0 : unpaid,
+                        scheduled: future ? unpaid : 0,
+                      };
+                    })}
                     margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -108,6 +119,12 @@ export default function HomePage() {
                       stackId="amt"
                       name={messages.remaining}
                       fill={UNPAID_COLOR}
+                    />
+                    <Bar
+                      dataKey="scheduled"
+                      stackId="amt"
+                      name={messages.pending}
+                      fill={SCHEDULED_COLOR}
                     />
                   </BarChart>
                 </ResponsiveContainer>

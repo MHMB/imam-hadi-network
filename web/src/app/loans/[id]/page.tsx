@@ -8,12 +8,14 @@ import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { JALALI_MONTHS, messages } from "@/lib/i18n";
+import { isPastDue, todayJalali } from "@/lib/jalali";
 import { useLoan } from "@/lib/query/hooks";
 
 export default function LoanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const loanId = Number(id);
   const { data, isLoading, isError } = useLoan(Number.isFinite(loanId) ? loanId : null);
+  const today = todayJalali();
 
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState />;
@@ -133,9 +135,15 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
                       <span className="font-medium text-slate-900">
                         {fmtMoneyMT(Number(inst.amount))}
                       </span>
-                      <Badge tone={inst.status === "paid" ? "paid" : "unpaid"}>
-                        {inst.status === "paid" ? messages.paid : messages.pending}
-                      </Badge>
+                      <InstallmentBadge
+                        status={inst.status}
+                        overdue={isPastDue(
+                          inst.due_persian_year,
+                          inst.due_persian_month,
+                          inst.due_day_of_month,
+                          today,
+                        )}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -148,6 +156,18 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
       </section>
     </section>
   );
+}
+
+/** DESIGN §6.3 status badges: paid → green, unpaid past-due → red «معوق»,
+ * unpaid future → neutral «در انتظار». */
+function InstallmentBadge({ status, overdue }: { status: string; overdue: boolean }) {
+  if (status === "paid") {
+    return <Badge tone="paid">{messages.paid}</Badge>;
+  }
+  if (overdue) {
+    return <Badge tone="overdue">{messages.overdue}</Badge>;
+  }
+  return <Badge tone="unpaid">{messages.pending}</Badge>;
 }
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
