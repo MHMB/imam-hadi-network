@@ -122,3 +122,79 @@ fund's 74 rows merge to one 527.55 party with 178 dated installments.
 4. Prod: truncate any leftover import, run
    `docker exec imamhadi-api-1 python -m app.importer.cli /uploads/real_data.xlsm`,
    verify per-year counts match §6.
+
+---
+
+## 8. Workbook macro & condition logic (decoded from the real file)
+
+### 8.1 The one VBA macro — `SumifColor` (Module1.bas; ThisWorkbook/Sheet1/Sheet2 are empty stubs)
+
+```vb
+Public Function SumifColor(ColorRange As Range, CellColor As Range, SumRange As Range)
+    ColIndex = CellColor.Interior.ColorIndex          ' colour of the marker cell
+    For i = 1 To ColorRange.Count
+        If ColorRange(i).Interior.ColorIndex = ColIndex Then
+            cSum = WorksheetFunction.Sum(SumRange(i), cSum)
+    ...
+```
+
+"Sum every grid cell painted the same colour as the marker cell."  Every
+year sheet computes `مانده` (remaining) with it:
+
+| Sheet | Formula shape | Marker cell |
+|---|---|---|
+| 1401/1402 | `=$L{r}-SumifColor($P{r}:$AF{r}, O1, …)` | `O1` — fill `FF00B050` (green) |
+| 1403 | `=K{r}-SumifColor(M{r+1}:AJ{r+1}, $K$3, …)` | `$K$3` |
+| 1404 | `=N{r}-SumifColor(P{r+1}:AM{r+1}, $N$3, …)` | `$N$3` |
+| 1405 | `=[مبلغ]-SumifColor([1]:[12], $J$1, …)` (Table7 structured refs) | `$J$1` |
+
+**Importer mapping:** remaining = `amount − Σ paid installments`, where paid
+= green fill on the amount cell (`colors.is_green`, `00B050` family).  The
+DB recomputes `مانده` from installment rows — the formula itself is never
+read.  Caveat: VBA matches by palette `ColorIndex`, the importer by RGB;
+empirically ≥99% of filled amount cells are literal `FF00B050`, and the
+rest surface as `color_anomaly` issues.
+
+### 8.2 Conditional formatting & data validation
+
+- **Only one CF rule in the whole workbook:** `افراد!B3:B355` →
+  `duplicateValues` (duplicate person names highlighted).  Mirrored by the
+  importer's identity keys + the master-dedup guard in the writer.
+- **No CF drives the paid colour** — green is hand-painted by admins, so
+  reading the fill (not a rule) is the correct decode.
+- Data validation: only a degraded stub on `سال 1404!H` (the old topic
+  dropdown); the 1405 table's validation lives in an `x14` extension
+  openpyxl can't read (its load-time warning).  Topic integrity is enforced
+  by the importer against `موضوعات` instead.
+
+### 8.3 The 1401/1402 date-math columns (the dropped credit-score system)
+
+Row 1 holds cumulative day-offsets per month (`P1=0, Q1=31, R1=62 … 701`);
+col `N` stores deposit day-number since year start.  Then per contribution:
+
+| Col | Header | Formula | Meaning |
+|---|---|---|---|
+| AN | واریز | literal datetime | actual deposit date (Gregorian) |
+| AR | موعد بازگشت | literal | promised return date |
+| AS | بازگشت | literal | actual return date |
+| AV | تسویه | literal 1/blank | settled flag (manual) |
+| AO | مدت پیش‌بینی | `=AR−AN` | planned duration (days) |
+| AP | مدت | `=(AS−AN)*AV` | actual duration, only when settled |
+| AQ | تاخیر | `=(AS−AR)*AV` | delay vs promise (days) |
+| AT | امتياز (روز*مبلغ) | `=AP*L*AV` | **score = days held × amount** — lender credit metric |
+| AU | زمان مانده | `=(…AL−TODAY())*IF(AV,…)` | countdown to due |
+
+This is the late-payment / scoring system SPEC §6 lists as "absent" — it
+existed in 1401/1402 and was dropped from 1403+.  Phase-2 source material
+(`installment.paid_persian_*` columns already reserved).
+
+### 8.4 افراد rollups & موجودی صندوق (why the DB recomputes them)
+
+- `افراد!J..N`: `SUMIFS` against **one hard-coded year sheet** per formula
+  vintage (the SPEC-documented "rollups only consume one year" defect);
+  `N = K − M` (net capital).  The API computes the same aggregates across
+  *all* years from `loan_party` + `installment` — strictly more correct.
+- `موجودی صندوق`: fund liquidity `G2 = K2 + O2 − C2` (receivables + bank
+  accounts − personal deposits held), with `K4..K7 = SUMIFS` of each year's
+  `مانده` where lender = the fund.  Pure derived data → excluded from
+  import; recomputable from the DB when a fund-balance page is wanted.
