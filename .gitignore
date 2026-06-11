@@ -100,6 +100,10 @@ backups/
 *.log
 logs/
 
+# Real member workbooks at repo root — financial PII, never commit.
+# Root-anchored so tracked samples (dashboard/, api/tests/fixtures/) stay in.
+/*.xlsm
+
 # Alembic local cache
 api/.alembic_cache/
 
