@@ -95,6 +95,8 @@ export const messages = {
   kpiByYear: "بر اساس سال",
   kpiLoanCount: "تعداد قرض",
   kpiLoansTotal: "مجموع قرض‌ها",
+  topicsRepayment: "بازپرداخت",
+  sortedBy: "مرتب‌سازی بر اساس",
   homeCirculation: "گردش مالی ماهانه",
   homeCirculationHint: "مجموع اقساط سررسیدشدهٔ هر ماه — پرداخت‌شده در برابر مانده",
   homeBorrowedByYear: "مبلغ قرض‌ها بر اساس سال",
