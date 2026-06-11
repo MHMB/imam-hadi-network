@@ -1,4 +1,4 @@
-"""Response shapes for /api/analytics/monthly."""
+"""Response shapes for /api/analytics/* endpoints."""
 
 from __future__ import annotations
 
@@ -53,3 +53,21 @@ class MonthlyAnalyticsResponse(BaseModel):
     new_loans_by_topic: list[TopicBreakdownItem]
     top_borrowers: list[PersonAmountItem]
     top_lenders: list[PersonAmountItem]
+
+
+class CirculationMonth(BaseModel):
+    """One Jalali month of repayment flow (lender-side installments due)."""
+
+    persian_year: int
+    persian_month: int = Field(ge=1, le=12)
+    label_fa: str  # "خرداد ۱۴۰۴"
+    count: int = Field(ge=0)
+    amount_total: Decimal
+    amount_paid: Decimal
+    amount_unpaid: Decimal
+
+
+class CirculationResponse(BaseModel):
+    """Whole-history monthly money circulation, oldest month first."""
+
+    months: list[CirculationMonth]

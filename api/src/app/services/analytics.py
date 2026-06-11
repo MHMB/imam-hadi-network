@@ -23,6 +23,8 @@ from sqlalchemy.orm import aliased
 from app.models import Installment, Loan, LoanParty, LoanTopic, Person
 from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.analytics import (
+    CirculationMonth,
+    CirculationResponse,
     InstallmentsDueByDay,
     InstallmentsDueSummary,
     MonthlyAnalyticsResponse,
@@ -230,41 +232,125 @@ async def _top_persons_by_role(
     month: int,
     role: LoanPartyRole,
 ) -> list[PersonAmountItem]:
-    """Top N borrowers / lenders by their per-month loan-party amount.
+    """Top N persons by the installment amounts **due in this month**.
 
-    Counted by ``loan.created_at`` (= import time) — same approximation
-    used elsewhere on this page.
+    - ``lender`` → who is owed the most this month (their repayment
+      receipts fall due now).
+    - ``borrower`` → whose loans have the most falling due this month
+      (the loan's borrower side of the same installments).
+
+    Earlier this filtered by ``loan.created_at`` — the *import* timestamp —
+    which put every loan in the month of the last xlsm upload and left
+    every other month empty.  The due triple is real data; use it.
     """
-    start_g, end_g = _gregorian_range_for_jalali_month(year, month)
-    lp = aliased(LoanParty)
-    rows = (
-        await session.execute(
+    lender_lp = aliased(LoanParty, name="lender_lp")
+
+    if role is LoanPartyRole.lender:
+        person_join = Person.id == lender_lp.person_id
+        stmt = (
             select(
                 Person.id.label("person_id"),
                 Person.full_name,
-                func.coalesce(func.sum(lp.amount), 0).label("total"),
+                func.coalesce(func.sum(Installment.amount), 0).label("total"),
             )
-            .select_from(lp)
-            .join(Loan, Loan.id == lp.loan_id)
-            .join(Person, Person.id == lp.person_id)
-            .where(
-                lp.role == role,
-                and_(Loan.created_at >= start_g, Loan.created_at < end_g),
+            .select_from(Installment)
+            .join(lender_lp, lender_lp.id == Installment.loan_party_id)
+            .join(Person, person_join)
+        )
+    else:
+        borrower_lp = aliased(LoanParty, name="borrower_lp")
+        stmt = (
+            select(
+                Person.id.label("person_id"),
+                Person.full_name,
+                func.coalesce(func.sum(Installment.amount), 0).label("total"),
+            )
+            .select_from(Installment)
+            .join(lender_lp, lender_lp.id == Installment.loan_party_id)
+            .join(Loan, Loan.id == lender_lp.loan_id)
+            .join(
+                borrower_lp,
+                and_(
+                    borrower_lp.loan_id == Loan.id,
+                    borrower_lp.role == LoanPartyRole.borrower,
+                ),
+            )
+            .join(Person, Person.id == borrower_lp.person_id)
+        )
+
+    rows = (
+        await session.execute(
+            stmt.where(
+                lender_lp.role == LoanPartyRole.lender,
+                Installment.due_persian_year == year,
+                Installment.due_persian_month == month,
             )
             .group_by(Person.id, Person.full_name)
-            .order_by(func.coalesce(func.sum(lp.amount), 0).desc())
+            .order_by(func.coalesce(func.sum(Installment.amount), 0).desc())
             .limit(_TOP_N)
         )
     ).all()
-    out: list[PersonAmountItem] = []
-    for r in rows:
-        # Skip persons with zero (shouldn't happen due to >0 check but defensive).
-        if Decimal(r.total) <= 0:
-            continue
-        out.append(
-            PersonAmountItem(person_id=r.person_id, full_name=r.full_name, total=Decimal(r.total))
+    return [
+        PersonAmountItem(person_id=r.person_id, full_name=r.full_name, total=Decimal(r.total))
+        for r in rows
+        if Decimal(r.total) > 0
+    ]
+
+
+async def get_circulation(session: AsyncSession) -> CirculationResponse:
+    """Whole-history monthly repayment flow for the home-page chart.
+
+    One row per Jalali (year, month) that has any lender-side installment
+    due, oldest first: how much fell due, how much of it is paid.
+    """
+    rows = (
+        await session.execute(
+            select(
+                Installment.due_persian_year.label("year"),
+                Installment.due_persian_month.label("month"),
+                func.count().label("count"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Installment.status == InstallmentStatus.paid, Installment.amount),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("paid_amount"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("unpaid_amount"),
+            )
+            .select_from(Installment)
+            .join(LoanParty, LoanParty.id == Installment.loan_party_id)
+            .where(LoanParty.role == LoanPartyRole.lender)
+            .group_by(Installment.due_persian_year, Installment.due_persian_month)
+            .order_by(Installment.due_persian_year, Installment.due_persian_month)
         )
-    return out
+    ).all()
+    months = []
+    for r in rows:
+        paid = Decimal(r.paid_amount)
+        unpaid = Decimal(r.unpaid_amount)
+        months.append(
+            CirculationMonth(
+                persian_year=r.year,
+                persian_month=r.month,
+                label_fa=_label_with_persian_digits(r.year, r.month),
+                count=r.count,
+                amount_total=paid + unpaid,
+                amount_paid=paid,
+                amount_unpaid=unpaid,
+            )
+        )
+    return CirculationResponse(months=months)
 
 
 # Re-bucket helper so callers can also dedupe / sum if multiple parties of

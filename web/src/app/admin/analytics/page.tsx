@@ -206,9 +206,10 @@ function TopPersonsCard({
 }) {
   return (
     <Card className="p-0">
-      <h2 className="border-b border-slate-100 px-4 py-3 text-base font-semibold text-slate-900">
-        {title}
-      </h2>
+      <div className="border-b border-slate-100 px-4 py-3">
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        <p className="mt-0.5 text-xs text-slate-500">{messages.monthlyTopHint}</p>
+      </div>
       {items.length === 0 ? (
         <p className="px-4 py-4 text-sm text-slate-500">{messages.empty}</p>
       ) : (

@@ -27,6 +27,8 @@ export type ImportDetailResponse = Schemas["ImportDetailResponse"];
 export type OverdueInstallmentItem = Schemas["OverdueInstallmentItem"];
 export type PageOfOverdueInstallmentItem = Schemas["Page_OverdueInstallmentItem_"];
 export type MonthlyAnalyticsResponse = Schemas["MonthlyAnalyticsResponse"];
+export type CirculationResponse = Schemas["CirculationResponse"];
+export type CirculationMonth = Schemas["CirculationMonth"];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
 
@@ -128,6 +130,8 @@ export const api = {
 
   monthlyAnalytics: (params: { year?: number; month?: number } = {}) =>
     getJson<MonthlyAnalyticsResponse>(`/analytics/monthly${qs(params)}`),
+
+  circulation: () => getJson<CirculationResponse>("/analytics/circulation"),
 
   uploadImports: async (files: File[]): Promise<ImportListItem[]> => {
     const form = new FormData();

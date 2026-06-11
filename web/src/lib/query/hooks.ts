@@ -80,6 +80,10 @@ export function useMonthlyAnalytics(year?: number, month?: number) {
   });
 }
 
+export function useCirculation() {
+  return useQuery({ queryKey: ["analytics", "circulation"], queryFn: api.circulation });
+}
+
 /** Status-poll hook: refetches every 1.5s while the row is non-terminal. */
 export function useImportPolling(id: number | null | undefined) {
   return useQuery({

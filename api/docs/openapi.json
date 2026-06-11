@@ -832,6 +832,27 @@
         }
       }
     },
+    "/api/analytics/circulation": {
+      "get": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Whole-history monthly money circulation (installments due vs paid)",
+        "operationId": "circulation_api_analytics_circulation_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CirculationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -904,6 +925,73 @@
           "files"
         ],
         "title": "Body_imports_upload_api_imports_post"
+      },
+      "CirculationMonth": {
+        "properties": {
+          "persian_year": {
+            "type": "integer",
+            "title": "Persian Year"
+          },
+          "persian_month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Persian Month"
+          },
+          "label_fa": {
+            "type": "string",
+            "title": "Label Fa"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          },
+          "amount_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Total"
+          },
+          "amount_paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Paid"
+          },
+          "amount_unpaid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Unpaid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persian_year",
+          "persian_month",
+          "label_fa",
+          "count",
+          "amount_total",
+          "amount_paid",
+          "amount_unpaid"
+        ],
+        "title": "CirculationMonth",
+        "description": "One Jalali month of repayment flow (lender-side installments due)."
+      },
+      "CirculationResponse": {
+        "properties": {
+          "months": {
+            "items": {
+              "$ref": "#/components/schemas/CirculationMonth"
+            },
+            "type": "array",
+            "title": "Months"
+          }
+        },
+        "type": "object",
+        "required": [
+          "months"
+        ],
+        "title": "CirculationResponse",
+        "description": "Whole-history monthly money circulation, oldest month first."
       },
       "DataIssueItem": {
         "properties": {

@@ -95,6 +95,10 @@ export const messages = {
   kpiByYear: "بر اساس سال",
   kpiLoanCount: "تعداد قرض",
   kpiLoansTotal: "مجموع قرض‌ها",
+  homeCirculation: "گردش مالی ماهانه",
+  homeCirculationHint: "مجموع اقساط سررسیدشدهٔ هر ماه — پرداخت‌شده در برابر مانده",
+  homeBorrowedByYear: "مبلغ قرض‌ها بر اساس سال",
+  homeTopicDistribution: "توزیع موضوعی قرض‌ها",
 
   // --- Admin / import ---
   adminLanding: "مدیریت",
@@ -112,6 +116,7 @@ export const messages = {
   monthlyNewLoansTotal: "مجموع قرض‌های ثبت‌شده",
   monthlyTopBorrowers: "بزرگ‌ترین قرض‌گیرندگان",
   monthlyTopLenders: "بزرگ‌ترین قرض‌دهندگان",
+  monthlyTopHint: "بر اساس اقساط سررسید این ماه",
   monthlyByTopic: "توزیع موضوعی قرض‌های ماه",
   monthlyDueByDay: "اقساط سررسیدشده در روزهای ماه",
   reimportFromExcel: "بارگذاری مجدد از اکسل",
