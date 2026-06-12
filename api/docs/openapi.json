@@ -2248,6 +2248,17 @@
             "type": "string",
             "title": "Phone"
           },
+          "national_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "National Code"
+          },
           "is_verified": {
             "type": "boolean",
             "title": "Is Verified"

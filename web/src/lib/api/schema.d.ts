@@ -761,6 +761,8 @@ export interface components {
             full_name: string;
             /** Phone */
             phone: string;
+            /** National Code */
+            national_code?: string | null;
             /** Is Verified */
             is_verified: boolean;
             /** Total Lent */
