@@ -31,3 +31,10 @@ export function fmtJalaliDate(year: number, month: number, day: number): string 
   const pad = (n: number) => toPersianDigits(String(n).padStart(2, "0"));
   return `${toPersianDigits(year)}/${pad(month)}/${pad(day)}`;
 }
+
+/** Real phone or null.  ~700 auto-created persons carry synthetic
+ * placeholder phones (`+0__<hash>`) — those must never reach the screen. */
+export function displayPhone(phone: string): string | null {
+  if (!phone || phone.startsWith("+0__")) return null;
+  return toPersianDigits(phone);
+}

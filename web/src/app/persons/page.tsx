@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
-import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
+import { displayPhone, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
 import { usePersons } from "@/lib/query/hooks";
 
@@ -79,7 +79,7 @@ export default function PersonsPage() {
                     {p.is_verified && <Badge tone="paid">{messages.verified}</Badge>}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-500">
-                    <span>{p.phone}</span>
+                    {displayPhone(p.phone) && <span dir="ltr">{displayPhone(p.phone)}</span>}
                     <span>
                       {messages.netCapital}: {fmtMoneyMT(Number(p.net_capital))}
                     </span>
@@ -109,7 +109,9 @@ export default function PersonsPage() {
                         {p.full_name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{p.phone}</td>
+                    <td className="px-4 py-3 text-slate-600" dir="ltr">
+                      {displayPhone(p.phone) ?? <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-4 py-3">{fmtMoneyMT(Number(p.total_lent))}</td>
                     <td className="px-4 py-3">{fmtMoneyMT(Number(p.total_borrowed))}</td>
                     <td className="px-4 py-3 font-medium">{fmtMoneyMT(Number(p.net_capital))}</td>

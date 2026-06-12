@@ -15,6 +15,7 @@ class PersonListItem(BaseModel):
     id: int
     full_name: str
     phone: str
+    national_code: str | None = None
     is_verified: bool
     total_lent: Decimal
     total_borrowed: Decimal

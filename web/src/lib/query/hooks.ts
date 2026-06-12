@@ -37,10 +37,11 @@ export function usePerson(id: number | null | undefined) {
   });
 }
 
-export function useLoans(params: Parameters<typeof api.loans>[0] = {}) {
+export function useLoans(params: Parameters<typeof api.loans>[0] = {}, enabled = true) {
   return useQuery({
     queryKey: ["loans", params],
     queryFn: () => api.loans(params),
+    enabled,
   });
 }
 
