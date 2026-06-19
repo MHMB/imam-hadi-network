@@ -65,6 +65,9 @@ export const messages = {
   // --- Installment concepts ---
   installment: "قسط",
   installments: "اقساط",
+  amount: "مبلغ",
+  repaidTo: "بازپرداخت به",
+  loanLenders: "قرض‌دهندگان",
   dueDate: "تاریخ سررسید",
   dayOfMonth: "روز ماه",
   overdue: "معوق",
