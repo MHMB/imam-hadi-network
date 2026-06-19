@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -14,6 +15,7 @@ import { usePersons } from "@/lib/query/hooks";
 const PAGE_SIZE = 25;
 
 export default function PersonsPage() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [hasDebt, setHasDebt] = useState(false);
@@ -103,7 +105,13 @@ export default function PersonsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {data.items.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50">
+                  <tr
+                    key={p.id}
+                    onClick={(e) => {
+                      if (!(e.target as HTMLElement).closest("a")) router.push(`/persons/${p.id}`);
+                    }}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/persons/${p.id}`} className="text-slate-900 hover:underline">
                         {p.full_name}
