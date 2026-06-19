@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -18,6 +19,7 @@ const PAGE_SIZE = 25;
 const YEARS = [1404, 1405] as const;
 
 export default function LoansPage() {
+  const router = useRouter();
   const [year, setYear] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>("all");
   const [q, setQ] = useState("");
@@ -125,7 +127,13 @@ export default function LoansPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {data.items.map((ln) => (
-                  <tr key={ln.id} className="hover:bg-slate-50">
+                  <tr
+                    key={ln.id}
+                    onClick={(e) => {
+                      if (!(e.target as HTMLElement).closest("a")) router.push(`/loans/${ln.id}`);
+                    }}
+                    className="cursor-pointer hover:bg-slate-50"
+                  >
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/loans/${ln.id}`} className="text-slate-900 hover:underline">
                         {toPersianDigits(ln.loan_number)}
