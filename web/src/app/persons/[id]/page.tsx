@@ -182,7 +182,7 @@ function LoansAccordion({
   borrowedCount: number;
   lentCount: number;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [tab, setTab] = useState<"borrowed" | "lent">(borrowedCount > 0 ? "borrowed" : "lent");
 
   // Lazy: nothing is fetched until the accordion opens; each tab fetches once.
