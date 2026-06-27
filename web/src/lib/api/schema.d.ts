@@ -896,6 +896,8 @@ export interface operations {
                 liaison?: string | null;
                 /** @description Substring match on loan_number */
                 q?: string | null;
+                sort?: string | null;
+                sort_dir?: string;
                 page?: number;
                 page_size?: number;
             };

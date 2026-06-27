@@ -2,36 +2,56 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { FilterChips } from "@/components/ui/FilterChips";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
-import { useLoans } from "@/lib/query/hooks";
+import { useKpi, useLoans } from "@/lib/query/hooks";
 
 type Status = "all" | "active" | "settled";
+type SortKey = "loan_number" | "year" | "total" | "remaining";
+type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
-const YEARS = [1404, 1405] as const;
 
 export default function LoansPage() {
   const router = useRouter();
-  const [year, setYear] = useState<number | null>(null);
+  const [year, setYear] = useState<number | "">("");
   const [status, setStatus] = useState<Status>("all");
   const [q, setQ] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
 
+  const kpi = useKpi();
+  const years = useMemo(
+    () => (kpi.data ? [...kpi.data.by_year.map((y) => y.year)].sort((a, b) => b - a) : []),
+    [kpi.data],
+  );
+
   const { data, isLoading, isError } = useLoans({
-    year: year ?? undefined,
+    year: year === "" ? undefined : year,
     status: status === "all" ? undefined : status,
     q: q || undefined,
+    sort: sortKey ?? undefined,
+    sort_dir: sortKey ? sortDir : undefined,
     page,
     page_size: PAGE_SIZE,
   });
+
+  const onSort = (key: SortKey) => {
+    setPage(1);
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "total" || key === "remaining" ? "desc" : "asc");
+    }
+  };
 
   return (
     <section className="space-y-4">
@@ -39,7 +59,8 @@ export default function LoansPage() {
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.navLoans}</h1>
       </header>
 
-      <div className="space-y-3">
+      {/* Single filter toolbar — search grows, selects sit inline and wrap */}
+      <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           inputMode="search"
@@ -49,26 +70,27 @@ export default function LoansPage() {
             setPage(1);
             setQ(e.target.value);
           }}
-          className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-slate-900 focus:outline-none"
+          className="h-10 min-w-[180px] flex-1 rounded-lg border border-slate-200 bg-white px-4 text-sm shadow-sm focus:border-slate-900 focus:outline-none"
           aria-label={messages.search}
         />
-        <FilterChips<number | null>
-          ariaLabel={messages.year}
-          value={year}
+        <FilterSelect
+          label={messages.year}
+          value={String(year)}
           onChange={(v) => {
             setPage(1);
-            setYear(v);
+            setYear(v === "" ? "" : Number(v));
           }}
           options={[
-            { value: null, label: messages.allYears },
-            ...YEARS.map((y) => ({ value: y, label: toPersianDigits(y) })),
+            { value: "", label: messages.allYears },
+            ...years.map((y) => ({ value: String(y), label: toPersianDigits(y) })),
           ]}
         />
-        <FilterChips<Status>
+        <FilterSelect
+          label={messages.statusLabel}
           value={status}
           onChange={(v) => {
             setPage(1);
-            setStatus(v);
+            setStatus(v as Status);
           }}
           options={[
             { value: "all", label: messages.allStatuses },
@@ -116,12 +138,36 @@ export default function LoansPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="px-4 py-2 text-start font-medium">{messages.loanNumber}</th>
-                  <th className="px-4 py-2 text-start font-medium">{messages.year}</th>
+                  <SortableTh
+                    label={messages.loanNumber}
+                    sortKey="loan_number"
+                    active={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                  />
+                  <SortableTh
+                    label={messages.year}
+                    sortKey="year"
+                    active={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                  />
                   <th className="px-4 py-2 text-start font-medium">{messages.borrower}</th>
                   <th className="px-4 py-2 text-start font-medium">{messages.topic}</th>
-                  <th className="px-4 py-2 text-start font-medium">{messages.loanTotal}</th>
-                  <th className="px-4 py-2 text-start font-medium">{messages.remaining}</th>
+                  <SortableTh
+                    label={messages.loanTotal}
+                    sortKey="total"
+                    active={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                  />
+                  <SortableTh
+                    label={messages.remaining}
+                    sortKey="remaining"
+                    active={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                  />
                   <th className="px-4 py-2 text-start font-medium">{messages.active}</th>
                 </tr>
               </thead>
@@ -158,5 +204,67 @@ export default function LoansPage() {
         </>
       )}
     </section>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  active,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  active: SortKey | null;
+  dir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  const isActive = active === sortKey;
+  return (
+    <th className="px-4 py-2 text-start font-medium">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        aria-pressed={isActive}
+        aria-label={`${messages.sortedBy} ${label}`}
+        className="inline-flex items-center gap-1 hover:text-slate-900"
+      >
+        {label}
+        <span aria-hidden className={isActive ? "text-slate-900" : "text-slate-300"}>
+          {isActive ? (dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="relative inline-flex items-center">
+      <span className="pointer-events-none absolute start-3 text-xs text-slate-400">{label}:</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className="h-10 cursor-pointer rounded-lg border border-slate-200 bg-white pe-8 ps-14 text-sm text-slate-800 shadow-sm focus:border-slate-900 focus:outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

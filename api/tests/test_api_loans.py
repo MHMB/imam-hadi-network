@@ -129,3 +129,25 @@ async def test_loan_1500_detail_has_1_borrower_and_3_lenders(
 async def test_loan_detail_404(seeded_client: AsyncClient) -> None:
     r = await seeded_client.get("/api/loans/999999")
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_loans_sort_by_loan_number(seeded_client: AsyncClient) -> None:
+    asc = (await seeded_client.get("/api/loans?sort=loan_number&sort_dir=asc")).json()
+    desc = (await seeded_client.get("/api/loans?sort=loan_number&sort_dir=desc")).json()
+
+    def nums(body: dict) -> list[int]:
+        return [int(it["loan_number"]) for it in body["items"]]
+
+    asc_nums = nums(asc)
+    assert asc_nums == sorted(asc_nums), "ascending must be numeric, not lexicographic"
+    assert nums(desc) == sorted(nums(desc), reverse=True)
+    # Same set both ways, just reordered.
+    assert set(asc_nums) == set(nums(desc))
+
+
+@pytest.mark.asyncio
+async def test_loans_sort_by_total_desc(seeded_client: AsyncClient) -> None:
+    body = (await seeded_client.get("/api/loans?sort=total&sort_dir=desc")).json()
+    totals = [float(it["total"]) for it in body["items"]]
+    assert totals == sorted(totals, reverse=True)

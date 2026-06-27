@@ -7,13 +7,14 @@ import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
 import { useKpi, useTopics } from "@/lib/query/hooks";
 
-type SortKey = "name" | "loan_count" | "total" | "paid" | "outstanding" | "pct";
+type SortKey = "name" | "loan_count" | "share" | "total" | "paid" | "outstanding" | "pct";
 type SortDir = "asc" | "desc";
 
 type TopicRow = {
   id: number;
   name: string;
   loan_count: number;
+  share: number; // % of total loan COUNT, 0..100
   total: number;
   paid: number;
   outstanding: number;
@@ -23,6 +24,7 @@ type TopicRow = {
 const COLUMNS: { key: SortKey; label: string; numeric: boolean }[] = [
   { key: "name", label: messages.topic, numeric: false },
   { key: "loan_count", label: messages.kpiLoanCount, numeric: true },
+  { key: "share", label: messages.topicShare, numeric: true },
   { key: "total", label: messages.loanTotal, numeric: true },
   { key: "paid", label: messages.paid, numeric: true },
   { key: "outstanding", label: messages.remaining, numeric: true },
@@ -44,6 +46,8 @@ export default function TopicsPage() {
 
   const rows = useMemo<TopicRow[]>(() => {
     if (!data) return [];
+    // Count share is relative to the total loans in the current (year) scope.
+    const totalLoans = data.reduce((acc, t) => acc + t.loan_count, 0);
     const mapped = data.map((t) => {
       const total = Number(t.total);
       const outstanding = Number(t.outstanding);
@@ -52,6 +56,7 @@ export default function TopicsPage() {
         id: t.id,
         name: t.name,
         loan_count: t.loan_count,
+        share: totalLoans > 0 ? (t.loan_count / totalLoans) * 100 : 0,
         total,
         paid,
         outstanding,
@@ -112,6 +117,9 @@ export default function TopicsPage() {
                 <tr key={t.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium text-slate-900">{t.name}</td>
                   <td className="px-4 py-3">{toPersianDigits(t.loan_count)}</td>
+                  <td className="px-4 py-3">
+                    <ShareBar pct={t.share} hasLoans={t.loan_count > 0} />
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">{fmtMoneyMT(t.total)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-paid">{fmtMoneyMT(t.paid)}</td>
                   <td
@@ -146,6 +154,25 @@ function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
     <span aria-hidden className="text-slate-900">
       {dir === "asc" ? "↑" : "↓"}
     </span>
+  );
+}
+
+/** Count-share of all loans as a small slate bar + Persian percentage. */
+function ShareBar({ pct, hasLoans }: { pct: number; hasLoans: boolean }) {
+  if (!hasLoans) {
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+  const label = pct >= 1 ? Math.round(pct) : Math.round(pct * 10) / 10;
+  return (
+    <div className="flex min-w-28 items-center gap-2">
+      <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+        <div
+          className="h-full rounded-full bg-slate-700"
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+      </div>
+      <span className="text-xs text-slate-600">٪{toPersianDigits(label)}</span>
+    </div>
   );
 }
 
