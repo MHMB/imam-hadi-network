@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { FilterBar, FilterNumber, FilterSearch, FilterSelect } from "@/components/ui/filters";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
@@ -23,6 +24,7 @@ export default function LoansPage() {
   const [year, setYear] = useState<number | "">("");
   const [status, setStatus] = useState<Status>("all");
   const [q, setQ] = useState("");
+  const [dueWithin, setDueWithin] = useState<number | "">("");
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(1);
@@ -37,6 +39,7 @@ export default function LoansPage() {
     year: year === "" ? undefined : year,
     status: status === "all" ? undefined : status,
     q: q || undefined,
+    due_within_days: dueWithin === "" ? undefined : dueWithin,
     sort: sortKey ?? undefined,
     sort_dir: sortKey ? sortDir : undefined,
     page,
@@ -60,18 +63,15 @@ export default function LoansPage() {
       </header>
 
       {/* Single filter toolbar — search grows, selects sit inline and wrap */}
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          inputMode="search"
-          placeholder={`${messages.loanNumber}...`}
+      <FilterBar>
+        <FilterSearch
           value={q}
-          onChange={(e) => {
+          onChange={(v) => {
             setPage(1);
-            setQ(e.target.value);
+            setQ(v);
           }}
-          className="h-10 min-w-[180px] flex-1 rounded-lg border border-slate-200 bg-white px-4 text-sm shadow-sm focus:border-slate-900 focus:outline-none"
-          aria-label={messages.search}
+          placeholder={`${messages.loanNumber}...`}
+          ariaLabel={messages.search}
         />
         <FilterSelect
           label={messages.year}
@@ -98,7 +98,19 @@ export default function LoansPage() {
             { value: "settled", label: messages.settled },
           ]}
         />
-      </div>
+        <FilterNumber
+          label={messages.dueWithin}
+          unit={messages.days}
+          value={dueWithin}
+          min={0}
+          max={3650}
+          placeholder="۵"
+          onChange={(v) => {
+            setPage(1);
+            setDueWithin(v);
+          }}
+        />
+      </FilterBar>
 
       {isLoading && <Loading />}
       {isError && <ErrorState />}
@@ -236,35 +248,5 @@ function SortableTh({
         </span>
       </button>
     </th>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <label className="relative inline-flex items-center">
-      <span className="pointer-events-none absolute start-3 text-xs text-slate-400">{label}:</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={label}
-        className="h-10 cursor-pointer rounded-lg border border-slate-200 bg-white pe-8 ps-14 text-sm text-slate-800 shadow-sm focus:border-slate-900 focus:outline-none"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }

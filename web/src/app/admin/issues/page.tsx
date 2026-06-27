@@ -6,7 +6,7 @@ import { Suspense, useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { FilterChips } from "@/components/ui/FilterChips";
+import { FilterSelect } from "@/components/ui/filters";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { toPersianDigits } from "@/lib/format";
@@ -54,18 +54,20 @@ function IssuesInner() {
         )}
       </header>
 
-      <FilterChips<Severity | null>
-        ariaLabel={messages.severityError}
-        value={severity}
-        onChange={(v) => {
-          setPage(1);
-          setSeverity(v);
-        }}
-        options={[
-          { value: null, label: messages.allSeverities },
-          ...SEVERITIES.map((s) => ({ value: s, label: severityLabel(s) })),
-        ]}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          label={messages.severityLabel}
+          value={severity ?? ""}
+          onChange={(v) => {
+            setPage(1);
+            setSeverity(v === "" ? null : (v as Severity));
+          }}
+          options={[
+            { value: "", label: messages.allSeverities },
+            ...SEVERITIES.map((s) => ({ value: s, label: severityLabel(s) })),
+          ]}
+        />
+      </div>
 
       {isLoading && <Loading />}
       {isError && <ErrorState />}

@@ -102,6 +102,7 @@ export const api = {
       lender_id?: number;
       liaison?: string;
       q?: string;
+      due_within_days?: number;
       sort?: "loan_number" | "year" | "total" | "remaining";
       sort_dir?: "asc" | "desc";
       page?: number;

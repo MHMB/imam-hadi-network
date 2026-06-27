@@ -157,6 +157,26 @@
             "description": "Substring match on loan_number"
           },
           {
+            "name": "due_within_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3650,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only loans with an unpaid installment due within N days from today",
+              "title": "Due Within Days"
+            },
+            "description": "Only loans with an unpaid installment due within N days from today"
+          },
+          {
             "name": "sort",
             "in": "query",
             "required": false,

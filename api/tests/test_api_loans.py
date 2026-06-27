@@ -151,3 +151,22 @@ async def test_loans_sort_by_total_desc(seeded_client: AsyncClient) -> None:
     body = (await seeded_client.get("/api/loans?sort=total&sort_dir=desc")).json()
     totals = [float(it["total"]) for it in body["items"]]
     assert totals == sorted(totals, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_loans_due_within_days_subsets(seeded_client: AsyncClient) -> None:
+    """due_within_days returns only loans with an unpaid installment due in
+    [today, today+N]; a huge window is a superset of a small one, and both are
+    subsets of the unfiltered list."""
+    all_loans = (await seeded_client.get("/api/loans")).json()
+    small = (await seeded_client.get("/api/loans?due_within_days=1")).json()
+    huge = (await seeded_client.get("/api/loans?due_within_days=3650")).json()
+
+    all_ids = {it["id"] for it in all_loans["items"]}
+    small_ids = {it["id"] for it in small["items"]}
+    huge_ids = {it["id"] for it in huge["items"]}
+
+    assert small_ids <= huge_ids <= all_ids
+    # Every returned loan must be active (has an unpaid installment to be due).
+    for it in huge["items"]:
+        assert it["status"] == "active"
