@@ -6,7 +6,7 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import case, func, select
+from sqlalchemy import BigInteger, case, cast, func, nulls_last, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -91,6 +91,8 @@ async def list_loans(
     lender_id: int | None = None,
     liaison: str | None = None,
     q: str | None = None,
+    sort: str | None = None,  # loan_number | year | total | remaining
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 50,
 ) -> Page[LoanListItem]:
@@ -155,8 +157,28 @@ async def list_loans(
 
     total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
+    # Loan numbers are stored as text but are numeric; order on the digits so
+    # "1000" sorts after "999". Non-numeric synthesised numbers sort last.
+    loan_number_numeric = cast(
+        func.nullif(func.regexp_replace(Loan.loan_number, r"\D", "", "g"), ""),
+        BigInteger,
+    )
+    sort_columns = {
+        "loan_number": loan_number_numeric,
+        "year": Loan.persian_year,
+        "total": Loan.total_amount,
+        "remaining": func.coalesce(paid_rem.c.remaining, 0),
+    }
+    sort_col = sort_columns.get(sort) if sort else None
+    order_by: list[Any]
+    if sort_col is not None:
+        primary = sort_col.desc() if sort_dir == "desc" else sort_col.asc()
+        order_by = [nulls_last(primary), Loan.persian_year.desc(), loan_number_numeric]
+    else:
+        order_by = [Loan.persian_year.desc(), Loan.loan_number]
+
     offset, limit = page_bounds(page, page_size)
-    page_q = base.order_by(Loan.persian_year.desc(), Loan.loan_number).offset(offset).limit(limit)
+    page_q = base.order_by(*order_by).offset(offset).limit(limit)
     rows = (await session.execute(page_q)).all()
 
     items = [

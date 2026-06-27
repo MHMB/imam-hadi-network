@@ -30,6 +30,8 @@ async def list_(
     lender_id: int | None = Query(default=None),
     liaison: str | None = Query(default=None),
     q: str | None = Query(default=None, description="Substring match on loan_number"),
+    sort: str | None = Query(default=None, pattern="^(loan_number|year|total|remaining)$"),
+    sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
 ) -> Page[LoanListItem]:
@@ -42,6 +44,8 @@ async def list_(
         lender_id=lender_id,
         liaison=liaison,
         q=q,
+        sort=sort,
+        sort_dir=sort_dir,
         page=page,
         page_size=page_size,
     )
