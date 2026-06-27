@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { FilterSelect } from "@/components/ui/filters";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
@@ -85,7 +86,15 @@ export default function TopicsPage() {
     <section className="space-y-6">
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.navTopics}</h1>
-        <YearFilter years={years} year={year} onChange={setYear} />
+        <FilterSelect
+          label={messages.year}
+          value={year === undefined ? "" : String(year)}
+          onChange={(v) => setYear(v === "" ? undefined : Number(v))}
+          options={[
+            { value: "", label: messages.allYears },
+            ...years.map((y) => ({ value: String(y), label: toPersianDigits(y) })),
+          ]}
+        />
       </header>
 
       {isLoading && <Loading />}
@@ -191,54 +200,5 @@ function RepaymentBar({ pct, hasLoans }: { pct: number; hasLoans: boolean }) {
       </div>
       <span className="text-xs text-slate-600">٪{toPersianDigits(pct)}</span>
     </div>
-  );
-}
-
-function YearFilter({
-  years,
-  year,
-  onChange,
-}: {
-  years: number[];
-  year: number | undefined;
-  onChange: (year: number | undefined) => void;
-}) {
-  return (
-    <div role="group" className="flex flex-wrap gap-2" aria-label={messages.year}>
-      <YearChip active={year === undefined} onClick={() => onChange(undefined)}>
-        {messages.allYears}
-      </YearChip>
-      {years.map((y) => (
-        <YearChip key={y} active={year === y} onClick={() => onChange(y)}>
-          {toPersianDigits(y)}
-        </YearChip>
-      ))}
-    </div>
-  );
-}
-
-function YearChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-        active
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
   );
 }

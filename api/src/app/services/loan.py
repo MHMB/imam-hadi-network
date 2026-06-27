@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import BigInteger, case, cast, func, nulls_last, select
+import jdatetime
+from sqlalchemy import BigInteger, case, cast, func, literal, nulls_last, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -91,6 +93,7 @@ async def list_loans(
     lender_id: int | None = None,
     liaison: str | None = None,
     q: str | None = None,
+    due_within_days: int | None = None,
     sort: str | None = None,  # loan_number | year | total | remaining
     sort_dir: str = "asc",
     page: int = 1,
@@ -151,6 +154,32 @@ async def list_loans(
         # cheap loan-number prefix match — Phase 1 admins typically type the
         # ش number, not free text.
         filters.append(Loan.loan_number.icontains(q))
+    if due_within_days is not None:
+        # Loans with a lender-side unpaid installment falling due between today
+        # and today+N (Jalali). Today and the end are real dates → convert via
+        # Gregorian; the stored due triples are compared as integer tuples, so
+        # impossible legacy dates (e.g. 1402/12/30) don't break the comparison.
+        today_j = jdatetime.date.fromgregorian(date=date.today())
+        end_j = jdatetime.date.fromgregorian(date=date.today() + timedelta(days=due_within_days))
+        due_tuple = tuple_(
+            Installment.due_persian_year,
+            Installment.due_persian_month,
+            Installment.due_day_of_month,
+        )
+        filters.append(
+            Loan.id.in_(
+                select(LoanParty.loan_id)
+                .join(Installment, Installment.loan_party_id == LoanParty.id)
+                .where(
+                    LoanParty.role == LoanPartyRole.lender,
+                    Installment.status == InstallmentStatus.unpaid,
+                    due_tuple
+                    >= tuple_(literal(today_j.year), literal(today_j.month), literal(today_j.day)),
+                    due_tuple
+                    <= tuple_(literal(end_j.year), literal(end_j.month), literal(end_j.day)),
+                )
+            )
+        )
 
     if filters:
         base = base.where(*filters)

@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { FilterBar, FilterSearch, FilterToggle } from "@/components/ui/filters";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { displayPhone, fmtMoneyMT, toPersianDigits } from "@/lib/format";
@@ -37,31 +38,44 @@ export default function PersonsPage() {
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.navPeople}</h1>
       </header>
 
-      <div className="space-y-3">
-        <input
-          type="search"
-          inputMode="search"
-          placeholder={messages.searchPlaceholder}
+      <FilterBar>
+        <FilterSearch
           value={q}
-          onChange={(e) => {
+          onChange={(v) => {
             setPage(1);
-            setQ(e.target.value);
+            setQ(v);
           }}
-          className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:border-slate-900 focus:outline-none"
-          aria-label={messages.search}
+          placeholder={messages.searchPlaceholder}
+          ariaLabel={messages.search}
         />
-        <div className="flex flex-wrap gap-2">
-          <ToggleChip active={verifiedOnly} onClick={() => setVerifiedOnly((v) => !v)}>
-            {messages.verified}
-          </ToggleChip>
-          <ToggleChip active={hasDebt} onClick={() => setHasDebt((v) => !v)}>
-            {messages.debtBalance}
-          </ToggleChip>
-          <ToggleChip active={hasReceivable} onClick={() => setHasReceivable((v) => !v)}>
-            {messages.receivableBalance}
-          </ToggleChip>
-        </div>
-      </div>
+        <FilterToggle
+          active={verifiedOnly}
+          onClick={() => {
+            setPage(1);
+            setVerifiedOnly((v) => !v);
+          }}
+        >
+          {messages.verified}
+        </FilterToggle>
+        <FilterToggle
+          active={hasDebt}
+          onClick={() => {
+            setPage(1);
+            setHasDebt((v) => !v);
+          }}
+        >
+          {messages.debtBalance}
+        </FilterToggle>
+        <FilterToggle
+          active={hasReceivable}
+          onClick={() => {
+            setPage(1);
+            setHasReceivable((v) => !v);
+          }}
+        >
+          {messages.receivableBalance}
+        </FilterToggle>
+      </FilterBar>
 
       {isLoading && <Loading />}
       {isError && <ErrorState />}
@@ -139,31 +153,5 @@ export default function PersonsPage() {
         </>
       )}
     </section>
-  );
-}
-
-function ToggleChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-        active
-          ? "border-slate-900 bg-slate-900 text-white"
-          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-      ].join(" ")}
-    >
-      {children}
-    </button>
   );
 }

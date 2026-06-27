@@ -896,6 +896,8 @@ export interface operations {
                 liaison?: string | null;
                 /** @description Substring match on loan_number */
                 q?: string | null;
+                /** @description Only loans with an unpaid installment due within N days from today */
+                due_within_days?: number | null;
                 sort?: string | null;
                 sort_dir?: string;
                 page?: number;

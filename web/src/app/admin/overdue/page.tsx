@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { FilterChips } from "@/components/ui/FilterChips";
+import { FilterSelect } from "@/components/ui/filters";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
@@ -13,7 +13,7 @@ import { messages } from "@/lib/i18n";
 import { useOverdueInstallments } from "@/lib/query/hooks";
 
 const PAGE_SIZE = 50;
-const THRESHOLDS = [0, 30, 60, 90] as const;
+const THRESHOLDS = [0, 30, 60, 90, 300, 600] as const;
 
 export default function AdminOverduePage() {
   const [minDays, setMinDays] = useState<number>(0);
@@ -28,19 +28,16 @@ export default function AdminOverduePage() {
     <section className="space-y-4">
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.adminOverdue}</h1>
-        <FilterChips<number>
-          ariaLabel={messages.daysOverdue}
-          value={minDays}
+        <FilterSelect
+          label={messages.daysOverdue}
+          value={String(minDays)}
           onChange={(v) => {
             setPage(1);
-            setMinDays(v);
+            setMinDays(Number(v));
           }}
           options={THRESHOLDS.map((t) => ({
-            value: t,
-            label:
-              t === 0
-                ? messages.empty.replace("یافت نشد", "همه")
-                : `+${toPersianDigits(t)} ${messages.daysOverdue}`,
+            value: String(t),
+            label: t === 0 ? messages.allItems : `+${toPersianDigits(t)} ${messages.days}`,
           }))}
         />
       </header>
