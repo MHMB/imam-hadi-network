@@ -103,11 +103,18 @@ def _to_day_of_month(value: object) -> int | None:
         return None
 
 
-def _starts_new_group(ws: Worksheet, row: int) -> bool:
-    value = ws.cell(row=row, column=ROW_INDEX_COL).value
-    if value is None or value == "":
-        return False
-    return not _is_formula(value)
+def _starts_new_group(ws: Worksheet, row: int, layout: YearLayout) -> bool:
+    """A group starts on a typed ردیف or, failing that, a typed ش.
+
+    Continuation rows copy both via formulas (``=A12``, ``=B12``).  Late in
+    سال 1404 the ردیف itself became a formula (``=B1406-1400``) on every
+    row, so the typed ش is the only remaining signal there.
+    """
+    for col in (ROW_INDEX_COL, layout.c_loan_number):
+        value = ws.cell(row=row, column=col).value
+        if value is not None and value != "" and not _is_formula(value):
+            return True
+    return False
 
 
 def _classify(amount_cell: Cell, sheet: str) -> tuple[InstallmentStatus, ParsedIssue | None]:
@@ -299,6 +306,50 @@ def _open_group(
     return loan
 
 
+def _unique_loan_number(
+    loan: _OpenLoan,
+    seen_numbers: set[str],
+    sheet: str,
+    issues: list[ParsedIssue],
+) -> str:
+    """The loan's ش, synthesised when blank and suffixed when repeated."""
+    loan_number = loan.loan_number
+    if loan_number is None:
+        loan_number = f"بدون‌شماره-r{loan.row}"
+        issues.append(
+            ParsedIssue(
+                severity=IssueSeverity.warning,
+                category=IssueCategory.orphan_row,
+                message=(
+                    f"گروه قرض در ردیف {loan.row} شماره (ش) ندارد؛ "
+                    f"شناسه «{loan_number}» جایگزین شد."
+                ),
+                sheet=sheet,
+                cell=f"{sheet}!B{loan.row}",
+            )
+        )
+    elif loan_number in seen_numbers:
+        # Hand-typed sheets occasionally repeat a ش on a new loan; keep
+        # the loan but give it a unique key so (year, number) holds.
+        original = loan_number
+        loan_number = f"{original}-r{loan.row}"
+        issues.append(
+            ParsedIssue(
+                severity=IssueSeverity.warning,
+                category=IssueCategory.broken_ref,
+                message=(
+                    f"شماره قرض «{original}» در ردیف {loan.row} تکراری است؛ "
+                    f"شناسه «{loan_number}» جایگزین شد."
+                ),
+                sheet=sheet,
+                cell=f"{sheet}!B{loan.row}",
+                context={"loan_number": original, "row": loan.row},
+            )
+        )
+    seen_numbers.add(loan_number)
+    return loan_number
+
+
 def parse_year(
     ws: Worksheet,
     persian_year: int,
@@ -308,6 +359,7 @@ def parse_year(
     """Append every loan of one year sheet to ``result.loans``."""
     sheet = ws.title
     open_loan: _OpenLoan | None = None
+    seen_numbers: set[str] = set()
 
     def _flush() -> None:
         nonlocal open_loan
@@ -315,21 +367,7 @@ def parse_year(
         if loan is None:
             return
 
-        loan_number = loan.loan_number
-        if loan_number is None:
-            loan_number = f"بدون‌شماره-r{loan.row}"
-            result.issues.append(
-                ParsedIssue(
-                    severity=IssueSeverity.warning,
-                    category=IssueCategory.orphan_row,
-                    message=(
-                        f"گروه قرض در ردیف {loan.row} شماره (ش) ندارد؛ "
-                        f"شناسه «{loan_number}» جایگزین شد."
-                    ),
-                    sheet=sheet,
-                    cell=f"{sheet}!B{loan.row}",
-                )
-            )
+        loan_number = _unique_loan_number(loan, seen_numbers, sheet, result.issues)
 
         total = loan.total
         if total is None or total <= 0:
@@ -423,7 +461,7 @@ def parse_year(
 
     row = layout.first_data_row
     while row <= ws.max_row:
-        if _starts_new_group(ws, row):
+        if _starts_new_group(ws, row, layout):
             _flush()
             open_loan = _open_group(ws, row, layout, sheet, result.issues)
 

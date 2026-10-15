@@ -410,8 +410,7 @@ def _merged_parties(
     """Collapse a loan's parties onto unique (person, role) slots.
 
     The ledgers record one row per *contribution*, and the same lender
-    often contributed to one loan several times (the pooled loans reach
-    74 rows for a single lender).  The schema's ``unique_role_person``
+    sometimes contributed to one loan several times.  The schema's ``unique_role_person``
     means one party per (loan, role, person): amounts are summed and the
     dated installments concatenated, so no repayment detail is lost.
 

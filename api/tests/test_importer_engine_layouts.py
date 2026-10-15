@@ -55,7 +55,7 @@ def test_month_spans_match_the_real_workbook() -> None:
     assert LAYOUTS[1402].grid_months[-1] == (1403, 12)
     assert LAYOUTS[1403].grid_months[-1] == (1405, 2)  # 26 months
     assert LAYOUTS[1404].grid_months[-1] == (1406, 2)  # 26 months
-    assert LAYOUTS[1405].grid_months[-1] == (1406, 5)  # 17 months
+    assert LAYOUTS[1405].grid_months[-1] == (1406, 12)  # 24 months (BH)
 
 
 # --------------------------------------------------------------------- 1401 paired layout
@@ -188,6 +188,31 @@ def test_blank_loan_number_is_synthesised_with_warning() -> None:
     synth = result.loans[1]
     assert synth.loan_number == "بدون‌شماره-r7"
     issues = [i for i in result.issues if i.category is IssueCategory.orphan_row]
+    assert issues
+    assert issues[0].severity is IssueSeverity.warning
+
+
+def test_formula_row_index_still_splits_on_typed_loan_number() -> None:
+    # Late سال 1404: ردیف is `=B{row}-1400` on every row; only ش is typed.
+    ws = _build_1401_sheet()
+    ws.cell(row=3, column=1).value = "=B3-1400"
+    ws.cell(row=7, column=1).value = "=B7-1400"
+    ws.cell(row=5, column=2).value = "=B3"  # continuation copies ش by formula
+    result = ParseResult()
+    parse_year(ws, 1401, LAYOUTS[1401], result)
+    assert [loan.loan_number for loan in result.loans] == ["204", "205"]
+    assert len(result.loans[0].parties) == 3  # borrower + both lenders
+
+
+def test_repeated_loan_number_is_disambiguated_with_warning() -> None:
+    ws = _build_1401_sheet()
+    ws.cell(row=7, column=2).value = ws.cell(row=3, column=2).value  # repeat loan 1's ش
+    result = ParseResult()
+    parse_year(ws, 1401, LAYOUTS[1401], result)
+    numbers = [loan.loan_number for loan in result.loans]
+    assert len(numbers) == len(set(numbers))
+    assert numbers[1] == f"{numbers[0]}-r7"
+    issues = [i for i in result.issues if i.category is IssueCategory.broken_ref]
     assert issues
     assert issues[0].severity is IssueSeverity.warning
 
