@@ -18,7 +18,7 @@ sheet     shape                    notes
                                    amounts only — no due-day row.
 سال 1404  paired rows, step 2      the layout the original importer shipped
                                    with; topic column H.
-سال 1405  Excel table, step 1      one row per contribution; 17 (day,
+سال 1405  Excel table, step 1      one row per contribution; 24 (day,
                                    amount) column pairs; topic column D.
 ========  =======================  ==========================================
 
@@ -38,6 +38,12 @@ DEFAULT_TOPIC = "نامعلوم"
 #: First year using the Excel-table single-row format; later years are
 #: assumed to keep it (with the month grid rebased).
 TABLE_FORMAT_SINCE = 1405
+
+#: Month pairs in the table-format grid.  The 1405 sheet started with 17
+#: (فروردین 05 → مرداد 06) and was extended to 24 (→ اسفند 06) in the
+#: 1405/07/17 workbook; reading past a shorter sheet's last column just
+#: yields empty cells.
+TABLE_GRID_MONTHS = 24
 
 
 class GridEncoding(StrEnum):
@@ -162,9 +168,9 @@ _LAYOUT_1405 = YearLayout(
     c_lender=10,  # J
     c_amount=11,  # K
     amount_row_offset=0,
-    grid_first_col=13,  # M.. — 17 (day, amount) pairs
+    grid_first_col=13,  # M..BH — 24 (day, amount) pairs
     grid_encoding=GridEncoding.table_pairs,
-    grid_months=month_span(1405, 1, 17),
+    grid_months=month_span(1405, 1, TABLE_GRID_MONTHS),
     c_topic=4,  # D
     c_guarantor=6,  # F
     c_channel=3,
@@ -186,5 +192,5 @@ def layout_for(persian_year: int) -> YearLayout | None:
     if persian_year in LAYOUTS:
         return LAYOUTS[persian_year]
     if persian_year > TABLE_FORMAT_SINCE:
-        return replace(_LAYOUT_1405, grid_months=month_span(persian_year, 1, 17))
+        return replace(_LAYOUT_1405, grid_months=month_span(persian_year, 1, TABLE_GRID_MONTHS))
     return None

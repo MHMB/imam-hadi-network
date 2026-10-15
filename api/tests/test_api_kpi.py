@@ -83,3 +83,10 @@ async def test_kpi_outstanding_consistency(seeded_client: AsyncClient) -> None:
     # outstanding_total must equal sum of per-year outstanding.
     by_year_sum = sum(float(y["outstanding"]) for y in body["by_year"])
     assert float(body["outstanding_total"]) == pytest.approx(by_year_sum)
+
+
+@pytest.mark.asyncio
+async def test_kpi_settled_matches_loan_list(seeded_client: AsyncClient) -> None:
+    body = (await seeded_client.get("/api/kpi")).json()
+    settled = (await seeded_client.get("/api/loans", params={"status": "settled"})).json()
+    assert body["loans_settled"] == settled["total"]

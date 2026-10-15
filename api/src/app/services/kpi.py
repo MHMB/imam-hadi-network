@@ -51,7 +51,12 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
         select(Loan.id, func.coalesce(func.sum(Installment.amount), 0).label("outstanding"))
         .select_from(Loan)
         .join(LoanParty, LoanParty.loan_id == Loan.id)
-        .join(Installment, Installment.loan_party_id == LoanParty.id, isouter=True)
+        .join(
+            Installment,
+            (Installment.loan_party_id == LoanParty.id)
+            & (Installment.status == InstallmentStatus.unpaid),
+            isouter=True,
+        )
         .where(LoanParty.role == LoanPartyRole.lender)
         .group_by(Loan.id)
         .subquery()

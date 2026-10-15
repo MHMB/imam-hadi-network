@@ -21,7 +21,7 @@ cell-by-cell against the production workbook.
 | 1402 | paired | 3 | 2 | B | F | E | K (top) | L (bottom) | — | J | P..AM = 24 mo (1402/01→1403/12) | day top / amount bottom |
 | 1403 | paired | 4 | 2 | B | E | F | J (top) | K (top) | — | I | M..AL = 26 mo (1403/01→1405/02) | **amounts only, no day row** |
 | 1404 | paired | 4 | 2 | B | E | G | L | N (top) | H | — | P..AO = 26 mo (1404/01→1406/02) | day top / amount bottom |
-| 1405 | Excel table (1 row / contribution) | 3 | 1 | B | G | H | J | K | D | F | M.. = 17 (day, amount) col pairs (1405/01→1406/05) | column pairs |
+| 1405 | Excel table (1 row / contribution) | 3 | 1 | B | G | H | J | K | D | F | M..BH = 24 (day, amount) col pairs (1405/01→1406/12; was 17 before the 1405/07/17 workbook) | column pairs |
 
 Other verified facts:
 
@@ -79,7 +79,7 @@ genuinely distinct entities and stay separate.
 ## 4. Writer changes (`importer/writer.py`)
 
 - **Repeat-lender merge**: ledgers record one row per *contribution* and
-  the same lender funds one loan up to **74 times** (pooled loans).  The
+  the same lender can fund one loan more than once.  The
   schema's `unique_role_person` wants one party per (loan, role, person), so
   `_merged_parties()` sums amounts and concatenates installments — no
   repayment detail lost, no constraint violation (this exact violation
@@ -111,8 +111,16 @@ issues=2,123 (89 errors = 62 never-funded skips + total mismatches)
 per-year loans: 1401=240, 1402=351, 1403=512, 1404=326, 1405=142
 ```
 
-Worst pooled loan (#1637): ~310 contribution rows → 110 unique parties; the
-fund's 74 rows merge to one 527.55 party with 178 dated installments.
+**Correction (1405/07/17 workbook):** the "pooled loan #1637" above was a
+mis-parse.  From #1638 on, سال 1404's ردیف column is a formula
+(`=B{row}-1400`), so the literal-ردیف group rule never fired again and every
+later loan was swallowed into #1637.  Groups now also start on a typed ش.
+Result on `صندوق-14050717.xlsm`:
+
+```
+loans=2050  per-year: 1401=240, 1402=351, 1403=512, 1404=560, 1405=387
+lender Σ and SumifColor مانده match the sheet totals for 1403/1404/1405
+```
 
 ## 7. Rollout
 
