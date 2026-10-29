@@ -99,6 +99,8 @@ async def test_person_detail_includes_per_year_and_lifetime(
         "person",
         "guarantors",
         "guarantees",
+        "brokered",
+        "profile",
         "by_year",
         "lifetime",
         "upcoming",

@@ -7,8 +7,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 
+from app.config import settings
 from app.db import SessionDep
 from app.models.enums import IssueCategory, IssueSeverity
 from app.schemas.issue import DataIssueItem, ImportDetailResponse, ImportListItem
@@ -41,6 +42,9 @@ async def imports_upload(
     session: SessionDep,
     background: BackgroundTasks,
     files: Annotated[list[UploadFile], File(description="One or more .xlsm files")],
+    confirm_app_data_loss: Annotated[
+        bool, Form(description="Admin accepts that app-entered data in the file's years is deleted")
+    ] = False,
 ) -> list[ImportListItem]:
     """Multipart upload endpoint.
 
@@ -69,7 +73,12 @@ async def imports_upload(
         await session.commit()  # persist the Import row before scheduling the task
 
         if not deduped and path is not None:
-            background.add_task(process_pending_import, row.id, path)
+            background.add_task(
+                process_pending_import,
+                row.id,
+                path,
+                confirm_app_data_loss and settings.import_guard == "confirm",
+            )
 
         out.append(
             ImportListItem(

@@ -38,6 +38,13 @@ DryRunOpt = Annotated[
     bool,
     typer.Option("--dry-run", help="Parse + validate, write nothing."),
 ]
+ForceOpt = Annotated[
+    bool,
+    typer.Option(
+        "--force",
+        help="Re-import years that hold app-entered loans/payments, deleting them.",
+    ),
+]
 ReportPathOpt = Annotated[
     Path | None,
     typer.Option("--report", help="Write outcome JSON for all files to this path."),
@@ -48,11 +55,12 @@ ReportPathOpt = Annotated[
 def run(
     files: FilesArg,
     dry_run: DryRunOpt = False,
+    force: ForceOpt = False,
     report: ReportPathOpt = None,
 ) -> None:
     """Import one or more .xlsm files into the database."""
     configure_logging()
-    outcomes = asyncio.run(_run_all(files, dry_run=dry_run))
+    outcomes = asyncio.run(_run_all(files, dry_run=dry_run, force=force))
 
     if report is not None:
         report.write_text(
@@ -67,11 +75,11 @@ def run(
         raise typer.Exit(code=1)
 
 
-async def _run_all(files: list[Path], *, dry_run: bool) -> list[ImportOutcome]:
+async def _run_all(files: list[Path], *, dry_run: bool, force: bool) -> list[ImportOutcome]:
     outcomes: list[ImportOutcome] = []
     async with open_session() as session:
         for f in files:
-            outcomes.append(await run_import(session, f, dry_run=dry_run))
+            outcomes.append(await run_import(session, f, dry_run=dry_run, force=force))
     return outcomes
 
 

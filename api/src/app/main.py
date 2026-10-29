@@ -17,10 +17,13 @@ from sqlalchemy import text
 from app import __version__
 from app.config import settings
 from app.db import SessionLocal
+from app.errors import FieldError, field_error_handler
 from app.logging import configure_logging, get_logger
 from app.routers import analytics as analytics_router
+from app.routers import audit as audit_router
 from app.routers import issue as issue_router
 from app.routers import kpi as kpi_router
+from app.routers import liaison as liaison_router
 from app.routers import loan as loan_router
 from app.routers import overdue as overdue_router
 from app.routers import person as person_router
@@ -48,10 +51,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
+app.add_exception_handler(FieldError, field_error_handler)
 app.include_router(kpi_router.router)
 app.include_router(loan_router.router)
 app.include_router(overdue_router.router)
@@ -59,6 +63,8 @@ app.include_router(person_router.router)
 app.include_router(topic_router.router)
 app.include_router(issue_router.router)
 app.include_router(analytics_router.router)
+app.include_router(audit_router.router)
+app.include_router(liaison_router.router)
 
 
 @app.get("/api/health", tags=["meta"])

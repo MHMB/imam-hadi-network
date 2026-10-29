@@ -42,6 +42,7 @@ from app.schemas.person import (
     PersonYearBreakdown,
 )
 from app.services.money import PAID, REMAINING, remaining_of
+from app.services.person_edit import get_profile
 from app.services.query import Page, normalize_persian_name, page_bounds
 
 
@@ -325,9 +326,13 @@ async def get_person_detail(session: AsyncSession, person_id: int) -> PersonDeta
     by_year = await _person_year_breakdown(session, person_id)
     upcoming, overdue = await _person_installments(session, person_id)
 
+    person_obj = await session.get(Person, person_id)
+    assert person_obj is not None
     return PersonDetailResponse(
         person=list_item,
+        profile=await get_profile(session, person_obj),
         guarantees=await _person_guarantees(session, person_id),
+        brokered=await _person_guarantees(session, person_id, Loan.liaison_person_id),
         guarantors=guarantors,
         by_year=by_year,
         lifetime=PersonLifetime(
@@ -340,8 +345,11 @@ async def get_person_detail(session: AsyncSession, person_id: int) -> PersonDeta
     )
 
 
-async def _person_guarantees(session: AsyncSession, person_id: int) -> PersonGuarantees:
-    """Loans this person guaranteed (loan.guarantor_id), with exposure."""
+async def _person_guarantees(
+    session: AsyncSession, person_id: int, role_column: Any = Loan.guarantor_id
+) -> PersonGuarantees:
+    """Loans linked to this person through ``role_column`` (guarantor by default,
+    or ``Loan.liaison_person_id`` for brokered loans), with exposure."""
     ty, tm, td = _today_jalali()
     unpaid = Installment.status == InstallmentStatus.unpaid
     late = and_(
@@ -361,7 +369,7 @@ async def _person_guarantees(session: AsyncSession, person_id: int) -> PersonGua
         )
         .join(Installment, Installment.loan_party_id == LoanParty.id)
         .join(Loan, Loan.id == LoanParty.loan_id)
-        .where(LoanParty.role == LoanPartyRole.lender, Loan.guarantor_id == person_id)
+        .where(LoanParty.role == LoanPartyRole.lender, role_column == person_id)
         .group_by(LoanParty.loan_id)
         .subquery()
     )
@@ -387,7 +395,7 @@ async def _person_guarantees(session: AsyncSession, person_id: int) -> PersonGua
             )
             .outerjoin(money, money.c.loan_id == Loan.id)
             .outerjoin(borrower, borrower.c.loan_id == Loan.id)
-            .where(Loan.guarantor_id == person_id)
+            .where(role_column == person_id)
             .order_by(overdue.desc(), remaining.desc(), Loan.persian_year.desc(), Loan.id.desc())
         )
     ).all()

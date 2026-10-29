@@ -45,8 +45,14 @@ class Settings(BaseSettings):
     # --- importer ---
     upload_dir: Path = Path("./uploads")
     max_upload_mb: int = 50
+    import_guard: Literal["confirm", "refuse"] = "confirm"
+    """Re-importing a year that holds app-entered data: ``confirm`` (test period)
+    lets the admin go ahead after ticking a confirmation; ``refuse`` (after the
+    Excel cutover) never allows it over HTTP.  The CLI ``--force`` always can."""
 
     # --- API ---
+    dev_user: str = "dev"
+    """Username recorded when no basic-auth header is present (local runs)."""
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
 
 

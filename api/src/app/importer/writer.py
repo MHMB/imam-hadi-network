@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.importer.models import ParsedInstallment, ParsedLoan, ParsedPerson, ParseResult
@@ -38,13 +38,15 @@ from app.models import (
     DataIssue,
     Import,
     Installment,
+    LiaisonAlias,
     Loan,
     LoanParty,
     LoanTopic,
+    Payment,
     Person,
     PersonGuarantor,
 )
-from app.models.enums import ImportStatus, InstallmentStatus, LoanPartyRole
+from app.models.enums import ImportStatus, InstallmentStatus, LoanOrigin, LoanPartyRole
 
 
 def sha256_of_file(path: Path) -> str:
@@ -62,6 +64,34 @@ async def _existing_import_for(session: AsyncSession, sha: str) -> Import | None
     return row.scalar_one_or_none()
 
 
+class AppDataInYears(Exception):
+    """Re-importing these years would delete data entered in the app."""
+
+    def __init__(self, years: list[int]) -> None:
+        self.years = years
+        listed = "، ".join(str(y) for y in years)
+        super().__init__(
+            f"سال {listed} داده‌ای دارد که در سامانه ثبت شده است؛ بارگذاری این فایل آن را پاک می‌کند. "
+            "برای ادامه، بارگذاری را با تأیید «پاک شدن داده‌های سامانه» تکرار کنید."
+        )
+
+
+async def years_with_app_data(session: AsyncSession, years: list[int]) -> list[int]:
+    """Years among ``years`` holding loans created in the app or payments recorded in it."""
+    if not years:
+        return []
+    app_loans = select(Loan.persian_year).where(
+        Loan.persian_year.in_(years), Loan.origin == LoanOrigin.app
+    )
+    paid_in_app = (
+        select(Loan.persian_year)
+        .join(Payment, Payment.loan_id == Loan.id)
+        .where(Loan.persian_year.in_(years))
+    )
+    rows = await session.execute(union(app_loans, paid_in_app))
+    return sorted(set(rows.scalars().all()))
+
+
 async def write_parse_result(
     session: AsyncSession,
     *,
@@ -69,6 +99,7 @@ async def write_parse_result(
     sha256: str,
     duration_ms: int,
     result: ParseResult,
+    allow_app_data_loss: bool = False,
 ) -> tuple[Import, bool]:
     """Persist a parsed workbook in one transaction.
 
@@ -84,6 +115,8 @@ async def write_parse_result(
         return existing, True
 
     years = sorted({loan.persian_year for loan in result.loans})
+    if not allow_app_data_loss and (blocked := await years_with_app_data(session, years)):
+        raise AppDataInYears(blocked)
     import_row = Import(
         source_sha256=sha256,
         source_filename=source_path.name,
@@ -105,6 +138,7 @@ async def apply_to_existing_import(
     result: ParseResult,
     *,
     duration_ms: int,
+    allow_app_data_loss: bool = False,
 ) -> Import:
     """Fill an existing pending Import row with parsed data.
 
@@ -115,6 +149,8 @@ async def apply_to_existing_import(
     transaction.
     """
     years = sorted({loan.persian_year for loan in result.loans})
+    if not allow_app_data_loss and (blocked := await years_with_app_data(session, years)):
+        raise AppDataInYears(blocked)
     import_row.years_imported = years
     import_row.duration_ms = duration_ms
     import_row.report = _summary(result)
@@ -156,6 +192,7 @@ async def _apply_parse_result(
         import_id=import_row.id,
         topic_ids=topic_id_by_name,
         person_ids=person_id_by_key,
+        liaison_aliases=await load_liaison_aliases(session),
     )
 
     for issue in result.issues:
@@ -334,6 +371,21 @@ async def _delete_year_scoped(session: AsyncSession, years: list[int]) -> None:
     await session.execute(delete(Loan).where(Loan.persian_year.in_(years)))
 
 
+def _liaison_person(
+    label: str | None, aliases: dict[str, int | None], person_ids: dict[str, int]
+) -> int | None:
+    """Admin-confirmed alias first («روابط» → None), else an exact name match."""
+    if not label:
+        return None
+    key = resolve_key(label)
+    return aliases[key] if key in aliases else person_ids.get(key)
+
+
+async def load_liaison_aliases(session: AsyncSession) -> dict[str, int | None]:
+    rows = await session.execute(select(LiaisonAlias.label_key, LiaisonAlias.person_id))
+    return {str(k): pid for k, pid in rows.all()}
+
+
 async def _insert_loans(
     session: AsyncSession,
     parsed_loans: list[ParsedLoan],
@@ -341,7 +393,9 @@ async def _insert_loans(
     import_id: int,
     topic_ids: dict[str, int],
     person_ids: dict[str, int],
+    liaison_aliases: dict[str, int | None] | None = None,
 ) -> None:
+    aliases = liaison_aliases or {}
     for parsed_loan in parsed_loans:
         topic_id = topic_ids.get(parsed_loan.topic_name)
         if topic_id is None:
@@ -363,6 +417,7 @@ async def _insert_loans(
             channel_number=parsed_loan.channel_number,
             guarantor_id=guarantor_id,
             liaison_label=parsed_loan.liaison_label,
+            liaison_person_id=_liaison_person(parsed_loan.liaison_label, aliases, person_ids),
             description=parsed_loan.description,
         )
         session.add(loan_row)
