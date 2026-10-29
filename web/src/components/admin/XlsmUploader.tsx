@@ -17,6 +17,9 @@ import { useUploadImports } from "@/lib/query/hooks";
 export function XlsmUploader({ onComplete }: { onComplete?: (importIds: number[]) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Re-importing a year that holds data entered in the app deletes that data;
+  // the server refuses unless the admin ticks this (test period only).
+  const [confirmLoss, setConfirmLoss] = useState(false);
   const mutation = useUploadImports();
 
   const submit = async (files: FileList | File[] | null) => {
@@ -26,7 +29,7 @@ export function XlsmUploader({ onComplete }: { onComplete?: (importIds: number[]
     const list = Array.from(files as ArrayLike<File>);
     const accepted = list.filter((f) => f.name.toLowerCase().endsWith(".xlsm"));
     if (accepted.length === 0) return;
-    const rows = await mutation.mutateAsync(accepted);
+    const rows = await mutation.mutateAsync({ files: accepted, confirm: confirmLoss });
     onComplete?.(rows.map((r) => r.id));
   };
 
@@ -80,6 +83,15 @@ export function XlsmUploader({ onComplete }: { onComplete?: (importIds: number[]
             if (inputRef.current) inputRef.current.value = "";
           }}
         />
+      </label>
+      <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+        <input
+          type="checkbox"
+          checked={confirmLoss}
+          onChange={(e) => setConfirmLoss(e.target.checked)}
+          className="mt-1 h-4 w-4"
+        />
+        <span>{messages.uploadConfirmLoss}</span>
       </label>
       {mutation.isPending && (
         <p className="text-sm text-slate-600" role="status">

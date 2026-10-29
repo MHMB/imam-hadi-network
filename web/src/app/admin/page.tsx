@@ -43,6 +43,7 @@ export default function AdminLandingPage() {
         <AdminLinkCard href="/admin/analytics" title={messages.adminAnalytics} />
         <AdminLinkCard href="/admin/imports" title={messages.adminImports} />
         <AdminLinkCard href="/admin/issues" title={messages.adminIssues} />
+        <AdminLinkCard href="/admin/liaisons" title={messages.liaisonsTitle} />
       </section>
     </section>
   );

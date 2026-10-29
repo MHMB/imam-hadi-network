@@ -6,10 +6,11 @@ import { usePathname } from "next/navigation";
 import { messages } from "@/lib/i18n";
 import { activeNavHref, NAV_ITEMS } from "./nav-items";
 
-export function Sidebar({ className = "" }: { className?: string }) {
+export function Sidebar({ className = "", id }: { className?: string; id?: string }) {
   const current = activeNavHref(usePathname());
   return (
     <aside
+      id={id}
       className={`flex flex-col border-l border-slate-200 bg-white ${className}`}
       aria-label={messages.navHome}
     >

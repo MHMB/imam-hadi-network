@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { QuickActions } from "@/components/home/QuickActions";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
@@ -49,8 +50,9 @@ export default function HomePage() {
 
   return (
     <section className="space-y-6">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.appTitle}</h1>
+        <QuickActions />
       </header>
 
       {isLoading && <Loading />}

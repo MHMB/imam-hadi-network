@@ -110,9 +110,58 @@ export function useImportPolling(id: number | null | undefined) {
 export function useUploadImports() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (files: File[]) => api.uploadImports(files),
+    mutationFn: ({ files, confirm }: { files: File[]; confirm?: boolean }) =>
+      api.uploadImports(files, confirm),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["imports"] });
+    },
+  });
+}
+
+export function useMe() {
+  return useQuery({ queryKey: ["me"], queryFn: api.me, staleTime: Infinity });
+}
+
+export function useAudit(entity: "loan" | "person" | "payment" | "liaison", id: number | null) {
+  return useQuery({
+    queryKey: ["audit", entity, id],
+    queryFn: () => api.audit(entity, id as number),
+    enabled: id != null,
+  });
+}
+
+export function usePayments(loanId: number | null) {
+  return useQuery({
+    queryKey: ["payments", loanId],
+    queryFn: () => api.payments(loanId as number),
+    enabled: loanId != null,
+  });
+}
+
+export function useLiaisons() {
+  return useQuery({ queryKey: ["liaisons"], queryFn: api.liaisons });
+}
+
+// Every money figure can move after a write: refresh all of them.
+const WRITE_KEYS = [
+  "kpi",
+  "loans",
+  "persons",
+  "overdue",
+  "topics",
+  "analytics",
+  "payments",
+  "audit",
+  "liaisons",
+];
+
+/** A write that refreshes every dependent view on success. */
+export function useWrite<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      for (const key of WRITE_KEYS) qc.invalidateQueries({ queryKey: [key] });
     },
   });
 }

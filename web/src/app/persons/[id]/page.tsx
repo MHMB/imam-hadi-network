@@ -5,7 +5,11 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { EditPersonDialog } from "@/components/person/EditPersonDialog";
+import { AuditHistory } from "@/components/ui/AuditHistory";
+import { Button } from "@/components/ui/form";
 import { NoteBadge } from "@/components/ui/NoteBadge";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { displayPhone, fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { JALALI_MONTHS, messages } from "@/lib/i18n";
@@ -28,11 +32,12 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const personId = Number(id);
   const { data, isLoading, isError } = usePerson(Number.isFinite(personId) ? personId : null);
+  const [editing, setEditing] = useState(false);
 
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState />;
 
-  const { person, guarantors, guarantees, by_year, upcoming, overdue } = data;
+  const { person, profile, guarantors, guarantees, brokered, by_year, upcoming, overdue } = data;
 
   const borrowedTotal = Number(person.total_borrowed);
   const debtRemaining = Number(person.outstanding_debt);
@@ -54,7 +59,33 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{person.full_name}</h1>
           {person.is_verified && <Badge tone="paid">{messages.verified}</Badge>}
+          <Button className="ms-auto" onClick={() => setEditing(true)}>
+            {messages.editProfile}
+          </Button>
         </div>
+        {(profile.contacts.length > 0 || profile.bank_account) && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-700">
+            {profile.contacts.map((c) => (
+              <span key={`${c.platform}-${c.handle}`} className="inline-flex items-center gap-1.5">
+                <PlatformIcon platform={c.platform} />
+                <span dir="ltr">{c.handle}</span>
+                {c.is_default && (
+                  <span className="rounded bg-slate-100 px-1.5 text-xs text-slate-600">
+                    {messages.contactDefault}
+                  </span>
+                )}
+              </span>
+            ))}
+            {profile.bank_account && (
+              <span>
+                {messages.bankAccount}:{" "}
+                <span dir="ltr" className="font-medium">
+                  {toPersianDigits(profile.bank_account)}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
         {(displayPhone(person.phone) || person.national_code) && (
           <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
             {displayPhone(person.phone) && (
@@ -144,7 +175,14 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         items={upcoming.filter((i) => i.role === "lender")}
       />
 
-      <GuaranteesSection guarantees={guarantees} />
+      <GuaranteesSection guarantees={guarantees} title={messages.guaranteesTitle} />
+      <GuaranteesSection
+        guarantees={brokered}
+        title={messages.brokeredTitle}
+        countLabel={messages.brokeredLoans}
+      />
+      <AuditHistory entity="person" id={person.id} />
+      {editing && <EditPersonDialog open onClose={() => setEditing(false)} detail={data} />}
     </section>
   );
 }
@@ -277,7 +315,10 @@ function LoansAccordion({
                             · {toPersianDigits(loan.persian_year)} · {loan.topic_name}
                           </span>
                         </Link>
-                        {loan.has_note && <NoteBadge />}
+                        {loan.has_note && <NoteBadge flagged={loan.note_flagged} />}
+                        {loan.source_platform && (
+                          <PlatformIcon platform={loan.source_platform} size={18} />
+                        )}
                         <span className="flex items-baseline gap-3 text-slate-600">
                           <span>{fmtMoneyMT(Number(loan.total))}</span>
                           <span
@@ -388,8 +429,12 @@ const GUARANTEES_PREVIEW = 8;
 /** Loans this person guaranteed: how much is still being repaid and how much is late. */
 function GuaranteesSection({
   guarantees,
+  title,
+  countLabel = messages.guaranteesLoans,
 }: {
   guarantees: NonNullable<ReturnType<typeof usePerson>["data"]>["guarantees"];
+  title: string;
+  countLabel?: string;
 }) {
   const [all, setAll] = useState(false);
   if (guarantees.loan_count === 0) return null;
@@ -398,11 +443,11 @@ function GuaranteesSection({
   return (
     <Card className="p-0">
       <h2 className="border-b border-slate-100 px-4 py-3 text-lg font-semibold text-slate-900">
-        {messages.guaranteesTitle}
+        {title}
       </h2>
       <dl className="grid grid-cols-2 gap-4 px-4 py-3 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-slate-500">{messages.guaranteesLoans}</dt>
+          <dt className="text-slate-500">{countLabel}</dt>
           <dd className="mt-0.5 font-semibold text-slate-900">
             {toPersianDigits(guarantees.loan_count)}
             <span className="ms-1 text-xs font-normal text-slate-500">
