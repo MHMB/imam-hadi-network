@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { FilterBar, FilterNumber, FilterSearch, FilterSelect } from "@/components/ui/filters";
 import { NoteBadge } from "@/components/ui/NoteBadge";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
 import { Pagination } from "@/components/ui/Pagination";
 import { type SortDir, SortableTh } from "@/components/ui/SortableTh";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
@@ -84,8 +85,14 @@ function LoansInner() {
 
   return (
     <section className="space-y-4">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.navLoans}</h1>
+        <Link
+          href="/loans/new"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
+        >
+          + {messages.newLoan}
+        </Link>
       </header>
 
       {/* Single filter toolbar — search grows, selects sit inline and wrap */}
@@ -142,7 +149,7 @@ function LoansInner() {
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 font-medium text-slate-900">
                       {messages.loanNumber} {toPersianDigits(ln.loan_number)}
-                      {ln.has_note && <NoteBadge />}
+                      {ln.has_note && <NoteBadge flagged={ln.note_flagged} />}
                     </span>
                     <Badge tone={ln.status}>
                       {ln.status === "active" ? messages.active : messages.settled}
@@ -212,7 +219,10 @@ function LoansInner() {
                         <Link href={`/loans/${ln.id}`} className="text-slate-900 hover:underline">
                           {toPersianDigits(ln.loan_number)}
                         </Link>
-                        {ln.has_note && <NoteBadge />}
+                        {ln.has_note && <NoteBadge flagged={ln.note_flagged} />}
+                        {ln.source_platform && (
+                          <PlatformIcon platform={ln.source_platform} size={18} />
+                        )}
                       </span>
                     </td>
                     <td className="px-4 py-3">{toPersianDigits(ln.persian_year)}</td>

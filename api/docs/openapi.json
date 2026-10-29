@@ -250,6 +250,45 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Create a loan",
+        "operationId": "create_api_loans_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/loans/{loan_id}": {
@@ -270,6 +309,301 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Edit loan details",
+        "operationId": "update_api_loans__loan_id__patch",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/schedule-preview": {
+      "post": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Generate a pro-rata installment schedule («همه متناسب»)",
+        "operationId": "schedule_preview_api_loans_schedule_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SchedulePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchedulePreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/{loan_id}/payments/preview": {
+      "post": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "How a payment would be split over the schedule",
+        "operationId": "payment_preview_api_loans__loan_id__payments_preview_post",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/{loan_id}/payments": {
+      "post": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Record a payment (schedule order, or the admin's split)",
+        "operationId": "payment_create_api_loans__loan_id__payments_post",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOut"
+                  },
+                  "title": "Response Payment Create Api Loans  Loan Id  Payments Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Payments on a loan",
+        "operationId": "payments_api_loans__loan_id__payments_get",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOut"
+                  },
+                  "title": "Response Payments Api Loans  Loan Id  Payments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/loans/{loan_id}/schedule": {
+      "put": {
+        "tags": [
+          "loans"
+        ],
+        "summary": "Edit the installment schedule (paid money stays put)",
+        "operationId": "schedule_edit_api_loans__loan_id__schedule_put",
+        "parameters": [
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleEdit"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -568,6 +902,45 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "persons"
+        ],
+        "summary": "Add a member",
+        "operationId": "create_api_persons_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/persons/guarantors": {
@@ -613,6 +986,56 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "persons"
+        ],
+        "summary": "Edit a person's profile (phone required); every change is audited",
+        "operationId": "update_api_persons__person_id__patch",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1030,6 +1453,198 @@
         }
       }
     },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Who is signed in",
+        "operationId": "me_api_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Change history of one entity",
+        "operationId": "audit_api_audit_get",
+        "parameters": [
+          {
+            "name": "entity",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(loan|person|payment|installment|liaison|import)$",
+              "title": "Entity"
+            }
+          },
+          {
+            "name": "entity_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Entity Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEntry"
+                  },
+                  "title": "Response Audit Api Audit Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/liaisons": {
+      "get": {
+        "tags": [
+          "liaisons"
+        ],
+        "summary": "Every رابط label and its person",
+        "operationId": "liaisons_api_liaisons_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LiaisonRow"
+                  },
+                  "type": "array",
+                  "title": "Response Liaisons Api Liaisons Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "liaisons"
+        ],
+        "summary": "Link a رابط label to a person (or none)",
+        "operationId": "link_api_liaisons_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LiaisonLink"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LiaisonRow"
+                  },
+                  "type": "array",
+                  "title": "Response Link Api Liaisons Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/{payment_id}/void": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Undo a payment: its money leaves the installments; the row stays for the record",
+        "operationId": "void_api_payments__payment_id__void_post",
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Payment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PaymentOut"
+                  },
+                  "title": "Response Void Api Payments  Payment Id  Void Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -1085,6 +1700,152 @@
   },
   "components": {
     "schemas": {
+      "AllocationIn": {
+        "properties": {
+          "installment_id": {
+            "type": "integer",
+            "title": "Installment Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installment_id",
+          "amount"
+        ],
+        "title": "AllocationIn"
+      },
+      "AllocationOut": {
+        "properties": {
+          "installment_id": {
+            "type": "integer",
+            "title": "Installment Id"
+          },
+          "lender_name": {
+            "type": "string",
+            "title": "Lender Name"
+          },
+          "due": {
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Due"
+          },
+          "installment_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Installment Amount"
+          },
+          "remaining_before": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining Before"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "installment_id",
+          "lender_name",
+          "due",
+          "installment_amount",
+          "remaining_before",
+          "amount"
+        ],
+        "title": "AllocationOut"
+      },
+      "AuditEntry": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "entity": {
+            "type": "string",
+            "title": "Entity"
+          },
+          "entity_id": {
+            "type": "integer",
+            "title": "Entity Id"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "after": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "at",
+          "username",
+          "action",
+          "entity",
+          "entity_id",
+          "before",
+          "after"
+        ],
+        "title": "AuditEntry"
+      },
       "Body_imports_upload_api_imports_post": {
         "properties": {
           "files": {
@@ -1095,6 +1856,12 @@
             "type": "array",
             "title": "Files",
             "description": "One or more .xlsm files"
+          },
+          "confirm_app_data_loss": {
+            "type": "boolean",
+            "title": "Confirm App Data Loss",
+            "description": "Admin accepts that app-entered data in the file's years is deleted",
+            "default": false
           }
         },
         "type": "object",
@@ -1169,6 +1936,41 @@
         ],
         "title": "CirculationResponse",
         "description": "Whole-history monthly money circulation, oldest month first."
+      },
+      "ContactRef": {
+        "properties": {
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "handle": {
+            "type": "string",
+            "title": "Handle"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default"
+          }
+        },
+        "type": "object",
+        "required": [
+          "platform",
+          "handle",
+          "is_default"
+        ],
+        "title": "ContactRef"
+      },
+      "CreatedResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "CreatedResponse"
       },
       "DataIssueItem": {
         "properties": {
@@ -1499,6 +2301,10 @@
       },
       "InstallmentRef": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "due_persian_year": {
             "type": "integer",
             "title": "Due Persian Year"
@@ -1516,16 +2322,23 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount"
           },
+          "amount_paid": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount Paid"
+          },
           "status": {
             "$ref": "#/components/schemas/InstallmentStatus"
           }
         },
         "type": "object",
         "required": [
+          "id",
           "due_persian_year",
           "due_persian_month",
           "due_day_of_month",
           "amount",
+          "amount_paid",
           "status"
         ],
         "title": "InstallmentRef"
@@ -1646,6 +2459,35 @@
         ],
         "title": "IssueSeverity",
         "description": "Severity bucket for an importer ``DataIssue``."
+      },
+      "JalaliDate": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "maximum": 1500.0,
+            "minimum": 1300.0,
+            "title": "Year"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "month",
+          "day"
+        ],
+        "title": "JalaliDate"
       },
       "KPIByYear": {
         "properties": {
@@ -1793,6 +2635,291 @@
         ],
         "title": "LenderPartyRef"
       },
+      "LenderSchedule-Input": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount"
+          },
+          "installments": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduledInstallment-Input"
+            },
+            "type": "array",
+            "title": "Installments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "amount",
+          "installments"
+        ],
+        "title": "LenderSchedule"
+      },
+      "LenderSchedule-Output": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "installments": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduledInstallment-Output"
+            },
+            "type": "array",
+            "title": "Installments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "amount",
+          "installments"
+        ],
+        "title": "LenderSchedule"
+      },
+      "LenderScheduleEdit": {
+        "properties": {
+          "party_id": {
+            "type": "integer",
+            "title": "Party Id"
+          },
+          "installments": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleRow"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Installments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "party_id",
+          "installments"
+        ],
+        "title": "LenderScheduleEdit"
+      },
+      "LenderShare": {
+        "properties": {
+          "person_id": {
+            "type": "integer",
+            "title": "Person Id"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "person_id",
+          "amount"
+        ],
+        "title": "LenderShare"
+      },
+      "LiaisonLink": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "person_id"
+        ],
+        "title": "LiaisonLink",
+        "description": "PUT body: link a label to a person, or null = a channel, not a person."
+      },
+      "LiaisonRow": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "loan_count": {
+            "type": "integer",
+            "title": "Loan Count"
+          },
+          "person": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "loan_count",
+          "person",
+          "confirmed"
+        ],
+        "title": "LiaisonRow",
+        "description": "One رابط label as written in the sheet and the person it is linked to."
+      },
+      "LoanCreate": {
+        "properties": {
+          "borrower_id": {
+            "type": "integer",
+            "title": "Borrower Id"
+          },
+          "topic_id": {
+            "type": "integer",
+            "title": "Topic Id"
+          },
+          "lenders": {
+            "items": {
+              "$ref": "#/components/schemas/LenderSchedule-Input"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Lenders"
+          },
+          "persian_year": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1500.0,
+                "minimum": 1300.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Persian Year"
+          },
+          "issued": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JalaliDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guarantor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guarantor Id"
+          },
+          "liaison_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liaison Person Id"
+          },
+          "liaison_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liaison Label"
+          },
+          "source_platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "note_flagged": {
+            "type": "boolean",
+            "title": "Note Flagged",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "borrower_id",
+          "topic_id",
+          "lenders"
+        ],
+        "title": "LoanCreate"
+      },
       "LoanDetailResponse": {
         "properties": {
           "loan": {
@@ -1914,6 +3041,21 @@
             "type": "boolean",
             "title": "Has Note",
             "default": false
+          },
+          "note_flagged": {
+            "type": "boolean",
+            "title": "Note Flagged",
+            "default": false
+          },
+          "source_platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -1976,6 +3118,12 @@
           "settled": {
             "type": "boolean",
             "title": "Settled"
+          },
+          "credit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit",
+            "default": "0"
           }
         },
         "type": "object",
@@ -1986,6 +3134,107 @@
           "settled"
         ],
         "title": "LoanTotals"
+      },
+      "LoanUpdate": {
+        "properties": {
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "guarantor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guarantor Id"
+          },
+          "liaison_person_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liaison Person Id"
+          },
+          "source_platform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Platform"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "note_flagged": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Flagged"
+          },
+          "issued": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JalaliDate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "LoanUpdate",
+        "description": "PATCH body; omitted fields stay unchanged, explicit null clears."
+      },
+      "MeResponse": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "role"
+        ],
+        "title": "MeResponse"
       },
       "MonthlyAnalyticsResponse": {
         "properties": {
@@ -2336,6 +3585,200 @@
         ],
         "title": "Page[PersonListItem]"
       },
+      "PaymentCreate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          },
+          "paid": {
+            "$ref": "#/components/schemas/JalaliDate"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "allocations": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/AllocationIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocations"
+          },
+          "confirm_credit": {
+            "type": "boolean",
+            "title": "Confirm Credit",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "paid"
+        ],
+        "title": "PaymentCreate"
+      },
+      "PaymentOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Amount"
+          },
+          "paid": {
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "type": "array",
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Paid"
+          },
+          "credit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "created_by": {
+            "type": "string",
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "voided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voided At"
+          },
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationOut"
+            },
+            "type": "array",
+            "title": "Allocations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "paid",
+          "credit",
+          "note",
+          "created_by",
+          "created_at",
+          "voided_at",
+          "allocations"
+        ],
+        "title": "PaymentOut"
+      },
+      "PaymentPreview": {
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationOut"
+            },
+            "type": "array",
+            "title": "Allocations"
+          },
+          "credit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit"
+          },
+          "remaining_after": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Remaining After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allocations",
+          "credit",
+          "remaining_after"
+        ],
+        "title": "PaymentPreview"
+      },
+      "PaymentPreviewRequest": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "PaymentPreviewRequest"
+      },
       "PersonAmountItem": {
         "properties": {
           "person_id": {
@@ -2360,12 +3803,40 @@
         ],
         "title": "PersonAmountItem"
       },
+      "PersonCreate": {
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Phone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "full_name",
+          "phone"
+        ],
+        "title": "PersonCreate"
+      },
       "PersonDetailResponse": {
         "properties": {
           "person": {
             "$ref": "#/components/schemas/PersonListItem"
           },
+          "profile": {
+            "$ref": "#/components/schemas/PersonProfile"
+          },
           "guarantees": {
+            "$ref": "#/components/schemas/PersonGuarantees"
+          },
+          "brokered": {
             "$ref": "#/components/schemas/PersonGuarantees"
           },
           "guarantors": {
@@ -2403,7 +3874,9 @@
         "type": "object",
         "required": [
           "person",
+          "profile",
           "guarantees",
+          "brokered",
           "guarantors",
           "by_year",
           "lifetime",
@@ -2639,6 +4112,47 @@
         "title": "PersonListItem",
         "description": "Row on the persons list page (DESIGN.md §6.2.2)."
       },
+      "PersonProfile": {
+        "properties": {
+          "bank_account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Account"
+          },
+          "messenger": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messenger"
+          },
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/ContactRef"
+            },
+            "type": "array",
+            "title": "Contacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bank_account",
+          "messenger",
+          "contacts"
+        ],
+        "title": "PersonProfile",
+        "description": "Editable profile fields shown on the person page."
+      },
       "PersonRef": {
         "properties": {
           "id": {
@@ -2662,6 +4176,54 @@
         ],
         "title": "PersonRef",
         "description": "Minimal nested person reference used in profile detail responses."
+      },
+      "PersonUpdate": {
+        "properties": {
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Phone"
+          },
+          "bank_account": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bank Account"
+          },
+          "contacts": {
+            "items": {
+              "$ref": "#/components/schemas/ContactRef"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Contacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "title": "PersonUpdate",
+        "description": "PATCH body.  Phone is required whenever the profile is saved."
       },
       "PersonYearBreakdown": {
         "properties": {
@@ -2723,6 +4285,214 @@
           "as_lender_remaining"
         ],
         "title": "PersonYearBreakdown"
+      },
+      "Platform": {
+        "type": "string",
+        "enum": [
+          "telegram",
+          "bale",
+          "eitaa",
+          "whatsapp",
+          "rubika",
+          "phone",
+          "in_person"
+        ],
+        "title": "Platform",
+        "description": "Messaging platforms (person contacts) and loan request channels."
+      },
+      "ScheduleEdit": {
+        "properties": {
+          "lenders": {
+            "items": {
+              "$ref": "#/components/schemas/LenderScheduleEdit"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Lenders"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lenders"
+        ],
+        "title": "ScheduleEdit"
+      },
+      "SchedulePreview": {
+        "properties": {
+          "lenders": {
+            "items": {
+              "$ref": "#/components/schemas/LenderSchedule-Output"
+            },
+            "type": "array",
+            "title": "Lenders"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lenders"
+        ],
+        "title": "SchedulePreview"
+      },
+      "SchedulePreviewRequest": {
+        "properties": {
+          "lenders": {
+            "items": {
+              "$ref": "#/components/schemas/LenderShare"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Lenders"
+          },
+          "months": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Months"
+          },
+          "first_due": {
+            "$ref": "#/components/schemas/JalaliDate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lenders",
+          "months",
+          "first_due"
+        ],
+        "title": "SchedulePreviewRequest"
+      },
+      "ScheduleRow": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 1500.0,
+            "minimum": 1300.0,
+            "title": "Year"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Day"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "month",
+          "day",
+          "amount"
+        ],
+        "title": "ScheduleRow"
+      },
+      "ScheduledInstallment-Input": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "maximum": 1500.0,
+            "minimum": 1300.0,
+            "title": "Year"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Day"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)"
+              }
+            ],
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "month",
+          "day",
+          "amount"
+        ],
+        "title": "ScheduledInstallment"
+      },
+      "ScheduledInstallment-Output": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "maximum": 1500.0,
+            "minimum": 1300.0,
+            "title": "Year"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "day": {
+            "type": "integer",
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Day"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,15}|(?=[\\d.]{1,19}0*$)\\d{0,15}\\.\\d{0,3}0*$)",
+            "title": "Amount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "month",
+          "day",
+          "amount"
+        ],
+        "title": "ScheduledInstallment"
       },
       "TopicBreakdownItem": {
         "properties": {

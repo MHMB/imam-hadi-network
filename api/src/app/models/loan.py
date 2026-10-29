@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     ForeignKey,
     Index,
@@ -26,12 +27,14 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
-from app.models.enums import LoanPartyRole
+from app.models.contact import platform_enum
+from app.models.enums import LoanOrigin, LoanPartyRole, Platform
 from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
@@ -63,11 +66,29 @@ class Loan(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    import_id: Mapped[int] = mapped_column(
+    import_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("import.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
+    """The Excel import that wrote this loan; NULL for loans created in the app."""
+
+    origin: Mapped[LoanOrigin] = mapped_column(
+        SqlEnum(
+            LoanOrigin,
+            native_enum=False,
+            length=16,
+            name="ck_loan_origin",
+            values_callable=lambda e: [m.value for m in e],
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=LoanOrigin.import_,
+        server_default=LoanOrigin.import_.value,
+    )
+    """``import`` = written by the Excel importer; ``app`` = created in the app.
+    The importer guard refuses / asks before deleting a year holding ``app`` loans."""
 
     # --- optional ---
     channel_number: Mapped[str | None] = mapped_column(String(32), default=None)
@@ -79,6 +100,29 @@ class Loan(Base, TimestampMixin):
     )
     liaison_label: Mapped[str | None] = mapped_column(String(80), index=True, default=None)
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    """Free-text note (the sheet's توضیح column, or typed in the app)."""
+    note_flagged: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    """Admin marked the note as important — loan lists show a strong badge."""
+    source_platform: Mapped[Platform | None] = mapped_column(
+        platform_enum("ck_loan_source_platform"), nullable=True, default=None
+    )
+    """Where the request came in (Bale, Eitaa, …)."""
+    liaison_person_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("person.id", ondelete="RESTRICT"),
+        index=True,
+        default=None,
+    )
+    """The broker as a person; ``liaison_label`` keeps the raw text («روابط» stays label-only)."""
+    issued_persian_year: Mapped[int | None] = mapped_column(SmallInteger, default=None)
+    issued_persian_month: Mapped[int | None] = mapped_column(SmallInteger, default=None)
+    issued_persian_day: Mapped[int | None] = mapped_column(SmallInteger, default=None)
+    """Date the money was paid out (known for loans created in the app)."""
+    created_by: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("app_user.id", ondelete="RESTRICT"), default=None
+    )
 
     # --- relationships ---
     # init=False on every relationship side — otherwise MappedAsDataclass
@@ -91,7 +135,7 @@ class Loan(Base, TimestampMixin):
         foreign_keys=[guarantor_id],
         init=False,
     )
-    import_: Mapped[Import] = relationship(
+    import_: Mapped[Import | None] = relationship(
         back_populates="loans",
         foreign_keys=[import_id],
         init=False,

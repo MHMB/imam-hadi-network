@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import InstallmentStatus
+from app.models.enums import InstallmentStatus, Platform
 from app.schemas.person import PersonRef
 
 LoanStatus = Literal["active", "settled"]
@@ -28,13 +28,17 @@ class LoanListItem(BaseModel):
     remaining: Decimal
     status: LoanStatus
     has_note: bool = False  # loan carries a description the admin should read
+    note_flagged: bool = False  # admin marked the note important
+    source_platform: Platform | None = None  # where the request came in
 
 
 class InstallmentRef(BaseModel):
+    id: int
     due_persian_year: int
     due_persian_month: int
     due_day_of_month: int
     amount: Decimal
+    amount_paid: Decimal  # partial payments; remaining = amount - amount_paid
     status: InstallmentStatus
 
 
@@ -55,6 +59,7 @@ class LoanTotals(BaseModel):
     paid: Decimal
     remaining: Decimal
     settled: bool
+    credit: Decimal = Decimal(0)  # confirmed over-payments held for the borrower
 
 
 class TopicRef(BaseModel):

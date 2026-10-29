@@ -26,25 +26,15 @@ from app.importer.parsers.topics import parse_topics
 from app.importer.parsers.year_1404 import parse_year_1404
 from app.importer.parsers.year_1405 import parse_year_1405
 from app.importer.validation import validate
-from app.importer.writer import sha256_of_file, write_parse_result
+from app.importer.writer import AppDataInYears, sha256_of_file, write_parse_result
 from app.models import DataIssue, Import, Loan, LoanParty, Person
-from app.models.enums import LoanPartyRole
+from app.models.enums import LoanOrigin, LoanPartyRole
+from tests.db_tables import WIPE_TABLES as _WIPE_TABLES
 
 pytestmark = pytest.mark.integration
 
 
 # --------------------------------------------------------------------- helpers
-
-
-_WIPE_TABLES = (
-    "data_issue",
-    "installment",
-    "loan_party",
-    "loan",
-    "import",
-    "person_guarantor",
-    "person",
-)
 
 
 @pytest.fixture
@@ -358,3 +348,37 @@ async def test_unlisted_lender_is_auto_created(session: AsyncSession) -> None:
         )
     ).scalar_one()
     assert mousavi_count == 1
+
+
+@pytest.mark.asyncio
+async def test_reimport_guard_protects_app_loans(
+    session: AsyncSession, sample_xlsm_path: Path
+) -> None:
+    result = _parse_full(sample_xlsm_path)
+    validate(result)
+    await write_parse_result(
+        session, source_path=sample_xlsm_path, sha256="a" * 64, duration_ms=0, result=result
+    )
+    loan = (await session.execute(select(Loan).order_by(Loan.id).limit(1))).scalar_one()
+    loan.origin = LoanOrigin.app
+    loan_id, year = loan.id, loan.persian_year
+    await session.commit()
+
+    with pytest.raises(AppDataInYears) as blocked:
+        await write_parse_result(
+            session, source_path=sample_xlsm_path, sha256="b" * 64, duration_ms=0, result=result
+        )
+    await session.rollback()
+    assert blocked.value.years == [year]
+    assert await session.get(Loan, loan_id) is not None, "nothing deleted when blocked"
+
+    await write_parse_result(
+        session,
+        source_path=sample_xlsm_path,
+        sha256="c" * 64,
+        duration_ms=0,
+        result=result,
+        allow_app_data_loss=True,
+    )
+    remaining = await session.execute(select(func.count()).where(Loan.origin == LoanOrigin.app))
+    assert remaining.scalar_one() == 0

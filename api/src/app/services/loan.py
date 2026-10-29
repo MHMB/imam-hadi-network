@@ -16,6 +16,7 @@ from app.models import (
     Loan,
     LoanParty,
     LoanTopic,
+    Payment,
     Person,
 )
 from app.models.enums import InstallmentStatus, LoanPartyRole
@@ -29,6 +30,7 @@ from app.schemas.loan import (
     TopicRef,
 )
 from app.schemas.person import PersonRef
+from app.services.money import PAID, REMAINING
 from app.services.query import Page, page_bounds
 
 
@@ -40,7 +42,7 @@ def _loan_paid_remaining_subq() -> Any:
             func.coalesce(
                 func.sum(
                     case(
-                        (Installment.status == InstallmentStatus.paid, Installment.amount),
+                        (Installment.amount_paid > 0, PAID),
                         else_=0,
                     )
                 ),
@@ -49,7 +51,7 @@ def _loan_paid_remaining_subq() -> Any:
             func.coalesce(
                 func.sum(
                     case(
-                        (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                        (Installment.status == InstallmentStatus.unpaid, REMAINING),
                         else_=0,
                     )
                 ),
@@ -109,6 +111,8 @@ async def list_loans(
             Loan.loan_number,
             Loan.channel_number,
             Loan.description,
+            Loan.note_flagged,
+            Loan.source_platform,
             Loan.liaison_label,
             Loan.total_amount,
             LoanTopic.name.label("topic_name"),
@@ -223,6 +227,8 @@ async def list_loans(
             remaining=Decimal(row.remaining),
             status="settled" if Decimal(row.remaining) == 0 else "active",
             has_note=bool((row.description or "").strip()),
+            note_flagged=row.note_flagged,
+            source_platform=row.source_platform,
         )
         for row in rows
     ]
@@ -302,11 +308,13 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
         inst_rows = (
             await session.execute(
                 select(
+                    Installment.id,
                     Installment.loan_party_id,
                     Installment.due_persian_year,
                     Installment.due_persian_month,
                     Installment.due_day_of_month,
                     Installment.amount,
+                    Installment.amount_paid,
                     Installment.status,
                 )
                 .where(Installment.loan_party_id.in_(lender_parties.keys()))
@@ -323,17 +331,19 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
             inst_status = InstallmentStatus(irow.status)
             lender_parties[irow.loan_party_id].installments.append(
                 InstallmentRef(
+                    id=irow.id,
                     due_persian_year=irow.due_persian_year,
                     due_persian_month=irow.due_persian_month,
                     due_day_of_month=irow.due_day_of_month,
                     amount=Decimal(irow.amount),
+                    amount_paid=Decimal(irow.amount_paid),
                     status=inst_status,
                 )
             )
-            if inst_status is InstallmentStatus.paid:
-                paid_by_party[irow.loan_party_id] += Decimal(irow.amount)
-            else:
-                remaining_by_party[irow.loan_party_id] += Decimal(irow.amount)
+            paid_by_party[irow.loan_party_id] += Decimal(irow.amount_paid)
+            remaining_by_party[irow.loan_party_id] += Decimal(irow.amount) - Decimal(
+                irow.amount_paid
+            )
         for pid, lp in lender_parties.items():
             lp.paid = paid_by_party[pid]
             lp.remaining = remaining_by_party[pid]
@@ -344,6 +354,15 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
         paid=sum((lp.paid for lp in lenders), Decimal(0)),
         remaining=sum((lp.remaining for lp in lenders), Decimal(0)),
         settled=all(lp.remaining == 0 for lp in lenders),
+        credit=Decimal(
+            (
+                await session.execute(
+                    select(func.coalesce(func.sum(Payment.credit), 0)).where(
+                        Payment.loan_id == loan_obj.id, Payment.voided_at.is_(None)
+                    )
+                )
+            ).scalar_one()
+        ),
     )
 
     return LoanDetailResponse(
@@ -355,6 +374,24 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
             "total_amount": str(loan_obj.total_amount),
             "liaison_label": loan_obj.liaison_label,
             "description": loan_obj.description,
+            "note_flagged": loan_obj.note_flagged,
+            "origin": loan_obj.origin.value,
+            "source_platform": loan_obj.source_platform.value if loan_obj.source_platform else None,
+            "issued": (
+                [
+                    loan_obj.issued_persian_year,
+                    loan_obj.issued_persian_month,
+                    loan_obj.issued_persian_day,
+                ]
+                if loan_obj.issued_persian_year
+                else None
+            ),
+            "liaison_person": (
+                {"id": lp_.id, "full_name": lp_.full_name}
+                if loan_obj.liaison_person_id
+                and (lp_ := await session.get(Person, loan_obj.liaison_person_id)) is not None
+                else None
+            ),
         },
         topic=TopicRef(id=topic_obj.id, name=topic_obj.name),
         guarantor=guarantor,

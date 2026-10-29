@@ -1,13 +1,14 @@
 import { messages } from "@/lib/i18n";
 
 /** Marks a loan that carries a note the admin should read (on the loan page). */
-export function NoteBadge() {
+export function NoteBadge({ flagged = false }: { flagged?: boolean }) {
+  const label = flagged ? messages.noteFlagged : messages.hasNote;
   return (
     <span
-      title={messages.hasNote}
-      aria-label={messages.hasNote}
+      title={label}
+      aria-label={label}
       role="img"
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-800"
+      className={`inline-flex h-5 w-5 items-center justify-center rounded-full ${flagged ? "bg-red-600 text-white" : "bg-amber-100 text-amber-800"}`}
     >
       <svg
         className="h-3 w-3"

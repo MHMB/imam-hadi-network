@@ -62,6 +62,12 @@ class Installment(Base):
         nullable=False,
     )
 
+    amount_paid: Mapped[Decimal] = mapped_column(
+        Numeric(18, 3), nullable=False, default=Decimal(0), server_default=text("0")
+    )
+    """Σ live payment allocations.  ``status = 'paid'`` exactly when this
+    reaches ``amount``; remaining due is always ``amount - amount_paid``."""
+
     # --- optional / future ---
     paid_persian_year: Mapped[int | None] = mapped_column(SmallInteger, default=None)
     paid_persian_month: Mapped[int | None] = mapped_column(SmallInteger, default=None)
@@ -77,6 +83,8 @@ class Installment(Base):
         CheckConstraint("due_persian_month BETWEEN 1 AND 12", name="due_month_valid"),
         CheckConstraint("due_day_of_month BETWEEN 1 AND 31", name="due_day_valid"),
         CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("amount_paid >= 0 AND amount_paid <= amount", name="amount_paid_range"),
+        CheckConstraint("(status = 'paid') = (amount_paid = amount)", name="status_matches_paid"),
         CheckConstraint(
             "(paid_persian_year IS NULL) = (paid_persian_month IS NULL)"
             " AND (paid_persian_year IS NULL) = (paid_persian_day IS NULL)",

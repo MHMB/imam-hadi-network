@@ -12,19 +12,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.config import settings
 from app.importer.runner import run_import
 from app.main import app
+from tests.db_tables import WIPE_TABLES as _WIPE_TABLES
 
 pytestmark = pytest.mark.integration
-
-
-_WIPE_TABLES = (
-    "data_issue",
-    "installment",
-    "loan_party",
-    "loan",
-    "import",
-    "person_guarantor",
-    "person",
-)
 
 
 @pytest.fixture
@@ -109,6 +99,8 @@ async def test_person_detail_includes_per_year_and_lifetime(
         "person",
         "guarantors",
         "guarantees",
+        "brokered",
+        "profile",
         "by_year",
         "lifetime",
         "upcoming",

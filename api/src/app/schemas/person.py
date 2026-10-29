@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import GuarantorRole, InstallmentStatus
+from app.models.enums import GuarantorRole, InstallmentStatus, Platform
 
 
 class PersonListItem(BaseModel):
@@ -94,6 +94,22 @@ class PersonGuarantees(BaseModel):
     loans: list[GuaranteedLoan]
 
 
+class LiaisonRow(BaseModel):
+    """One رابط label as written in the sheet and the person it is linked to."""
+
+    label: str
+    loan_count: int
+    person: PersonRef | None
+    confirmed: bool  # admin set this link (True) or it came from an exact name match
+
+
+class LiaisonLink(BaseModel):
+    """PUT body: link a label to a person, or null = a channel, not a person."""
+
+    label: str = Field(min_length=1, max_length=80)
+    person_id: int | None
+
+
 class GuarantorOption(BaseModel):
     """A member guarantor for the persons-list filter."""
 
@@ -102,9 +118,34 @@ class GuarantorOption(BaseModel):
     members: int
 
 
+class ContactRef(BaseModel):
+    platform: Platform
+    handle: str
+    is_default: bool
+
+
+class PersonProfile(BaseModel):
+    """Editable profile fields shown on the person page."""
+
+    bank_account: str | None
+    messenger: str | None  # legacy free text from the افراد sheet
+    contacts: list[ContactRef]
+
+
+class PersonUpdate(BaseModel):
+    """PATCH body.  Phone is required whenever the profile is saved."""
+
+    full_name: str | None = Field(default=None, max_length=200)
+    phone: str = Field(min_length=1, max_length=32)
+    bank_account: str | None = Field(default=None, max_length=40)
+    contacts: list[ContactRef] = Field(default_factory=list, max_length=12)
+
+
 class PersonDetailResponse(BaseModel):
     person: PersonListItem
+    profile: PersonProfile
     guarantees: PersonGuarantees
+    brokered: PersonGuarantees  # loans where this person is the رابط
     guarantors: list[PersonGuarantorRef]
     by_year: list[PersonYearBreakdown]
     lifetime: PersonLifetime

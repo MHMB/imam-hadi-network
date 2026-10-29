@@ -21,6 +21,7 @@ from app.models import Installment, Loan, LoanParty, LoanTopic, Person
 from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.overdue import OverdueInstallmentItem
 from app.schemas.person import PersonRef
+from app.services.money import REMAINING
 from app.services.query import Page, page_bounds
 
 
@@ -102,7 +103,7 @@ async def list_overdue(
             Installment.due_persian_year,
             Installment.due_persian_month,
             Installment.due_day_of_month,
-            Installment.amount,
+            REMAINING.label("amount"),
             borrower_person.id.label("b_id"),
             borrower_person.full_name.label("b_name"),
             borrower_person.phone.label("b_phone"),

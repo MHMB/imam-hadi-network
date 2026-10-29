@@ -120,6 +120,7 @@ async def run_import(
     path: Path,
     *,
     dry_run: bool = False,
+    force: bool = False,
 ) -> ImportOutcome:
     """End-to-end pipeline: hash → parse → validate → (write or skip).
 
@@ -162,6 +163,7 @@ async def run_import(
         sha256=sha,
         duration_ms=duration_ms,
         result=result,
+        allow_app_data_loss=force,
     )
     total_ms = int((time.monotonic() - started) * 1000)
 

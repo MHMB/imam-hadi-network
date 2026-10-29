@@ -34,7 +34,8 @@ export interface paths {
         /** Paginated loan list with year/topic/status/person/liaison filters */
         get: operations["list__api_loans_get"];
         put?: never;
-        post?: never;
+        /** Create a loan */
+        post: operations["create_api_loans_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -51,6 +52,76 @@ export interface paths {
         /** Loan detail: borrowers, lenders, installments */
         get: operations["detail_api_loans__loan_id__get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit loan details */
+        patch: operations["update_api_loans__loan_id__patch"];
+        trace?: never;
+    };
+    "/api/loans/schedule-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate a pro-rata installment schedule («همه متناسب») */
+        post: operations["schedule_preview_api_loans_schedule_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/loans/{loan_id}/payments/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How a payment would be split over the schedule */
+        post: operations["payment_preview_api_loans__loan_id__payments_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/loans/{loan_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payments on a loan */
+        get: operations["payments_api_loans__loan_id__payments_get"];
+        put?: never;
+        /** Record a payment (schedule order, or the admin's split) */
+        post: operations["payment_create_api_loans__loan_id__payments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/loans/{loan_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit the installment schedule (paid money stays put) */
+        put: operations["schedule_edit_api_loans__loan_id__schedule_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -85,7 +156,8 @@ export interface paths {
         /** Paginated person list with Persian-fuzzy search and filters */
         get: operations["list__api_persons_get"];
         put?: never;
-        post?: never;
+        /** Add a member */
+        post: operations["create_api_persons_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -123,7 +195,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Edit a person's profile (phone required); every change is audited */
+        patch: operations["update_api_persons__person_id__patch"];
         trace?: never;
     };
     "/api/topics": {
@@ -242,6 +315,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who is signed in */
+        get: operations["me_api_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Change history of one entity */
+        get: operations["audit_api_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/liaisons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every رابط label and its person */
+        get: operations["liaisons_api_liaisons_get"];
+        /** Link a رابط label to a person (or none) */
+        put: operations["link_api_liaisons_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/{payment_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Undo a payment: its money leaves the installments; the row stays for the record */
+        post: operations["void_api_payments__payment_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -286,6 +428,58 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AllocationIn */
+        AllocationIn: {
+            /** Installment Id */
+            installment_id: number;
+            /** Amount */
+            amount: number | string;
+        };
+        /** AllocationOut */
+        AllocationOut: {
+            /** Installment Id */
+            installment_id: number;
+            /** Lender Name */
+            lender_name: string;
+            /** Due */
+            due: [
+                number,
+                number,
+                number
+            ];
+            /** Installment Amount */
+            installment_amount: string;
+            /** Remaining Before */
+            remaining_before: string;
+            /** Amount */
+            amount: string;
+        };
+        /** AuditEntry */
+        AuditEntry: {
+            /** Id */
+            id: number;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Username */
+            username: string;
+            /** Action */
+            action: string;
+            /** Entity */
+            entity: string;
+            /** Entity Id */
+            entity_id: number;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+        };
         /** Body_imports_upload_api_imports_post */
         Body_imports_upload_api_imports_post: {
             /**
@@ -293,6 +487,12 @@ export interface components {
              * @description One or more .xlsm files
              */
             files: string[];
+            /**
+             * Confirm App Data Loss
+             * @description Admin accepts that app-entered data in the file's years is deleted
+             * @default false
+             */
+            confirm_app_data_loss: boolean;
         };
         /**
          * CirculationMonth
@@ -321,6 +521,19 @@ export interface components {
         CirculationResponse: {
             /** Months */
             months: components["schemas"]["CirculationMonth"][];
+        };
+        /** ContactRef */
+        ContactRef: {
+            platform: components["schemas"]["Platform"];
+            /** Handle */
+            handle: string;
+            /** Is Default */
+            is_default: boolean;
+        };
+        /** CreatedResponse */
+        CreatedResponse: {
+            /** Id */
+            id: number;
         };
         /** DataIssueItem */
         DataIssueItem: {
@@ -446,6 +659,8 @@ export interface components {
         ImportStatus: "pending" | "running" | "success" | "failed";
         /** InstallmentRef */
         InstallmentRef: {
+            /** Id */
+            id: number;
             /** Due Persian Year */
             due_persian_year: number;
             /** Due Persian Month */
@@ -454,6 +669,8 @@ export interface components {
             due_day_of_month: number;
             /** Amount */
             amount: string;
+            /** Amount Paid */
+            amount_paid: string;
             status: components["schemas"]["InstallmentStatus"];
         };
         /**
@@ -508,6 +725,15 @@ export interface components {
          * @enum {string}
          */
         IssueSeverity: "error" | "warning" | "info";
+        /** JalaliDate */
+        JalaliDate: {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
+        };
         /**
          * KPIByYear
          * @description One row per persian year present in the DB.
@@ -561,6 +787,87 @@ export interface components {
             remaining: string;
             /** Installments */
             installments: components["schemas"]["InstallmentRef"][];
+        };
+        /** LenderSchedule */
+        "LenderSchedule-Input": {
+            /** Person Id */
+            person_id: number;
+            /** Amount */
+            amount: number | string;
+            /** Installments */
+            installments: components["schemas"]["ScheduledInstallment-Input"][];
+        };
+        /** LenderSchedule */
+        "LenderSchedule-Output": {
+            /** Person Id */
+            person_id: number;
+            /** Amount */
+            amount: string;
+            /** Installments */
+            installments: components["schemas"]["ScheduledInstallment-Output"][];
+        };
+        /** LenderScheduleEdit */
+        LenderScheduleEdit: {
+            /** Party Id */
+            party_id: number;
+            /** Installments */
+            installments: components["schemas"]["ScheduleRow"][];
+        };
+        /** LenderShare */
+        LenderShare: {
+            /** Person Id */
+            person_id: number;
+            /** Amount */
+            amount: number | string;
+        };
+        /**
+         * LiaisonLink
+         * @description PUT body: link a label to a person, or null = a channel, not a person.
+         */
+        LiaisonLink: {
+            /** Label */
+            label: string;
+            /** Person Id */
+            person_id: number | null;
+        };
+        /**
+         * LiaisonRow
+         * @description One رابط label as written in the sheet and the person it is linked to.
+         */
+        LiaisonRow: {
+            /** Label */
+            label: string;
+            /** Loan Count */
+            loan_count: number;
+            person: components["schemas"]["PersonRef"] | null;
+            /** Confirmed */
+            confirmed: boolean;
+        };
+        /** LoanCreate */
+        LoanCreate: {
+            /** Borrower Id */
+            borrower_id: number;
+            /** Topic Id */
+            topic_id: number;
+            /** Lenders */
+            lenders: components["schemas"]["LenderSchedule-Input"][];
+            /** Persian Year */
+            persian_year?: number | null;
+            issued?: components["schemas"]["JalaliDate"] | null;
+            /** Guarantor Id */
+            guarantor_id?: number | null;
+            /** Liaison Person Id */
+            liaison_person_id?: number | null;
+            /** Liaison Label */
+            liaison_label?: string | null;
+            source_platform?: components["schemas"]["Platform"] | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Note Flagged
+             * @default false
+             */
+            note_flagged: boolean;
         };
         /**
          * LoanDetailResponse
@@ -617,6 +924,12 @@ export interface components {
              * @default false
              */
             has_note: boolean;
+            /**
+             * Note Flagged
+             * @default false
+             */
+            note_flagged: boolean;
+            source_platform?: components["schemas"]["Platform"] | null;
         };
         /** LoanPartyRef */
         LoanPartyRef: {
@@ -636,6 +949,36 @@ export interface components {
             remaining: string;
             /** Settled */
             settled: boolean;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: string;
+        };
+        /**
+         * LoanUpdate
+         * @description PATCH body; omitted fields stay unchanged, explicit null clears.
+         */
+        LoanUpdate: {
+            /** Topic Id */
+            topic_id?: number | null;
+            /** Guarantor Id */
+            guarantor_id?: number | null;
+            /** Liaison Person Id */
+            liaison_person_id?: number | null;
+            source_platform?: components["schemas"]["Platform"] | null;
+            /** Description */
+            description?: string | null;
+            /** Note Flagged */
+            note_flagged?: boolean | null;
+            issued?: components["schemas"]["JalaliDate"] | null;
+        };
+        /** MeResponse */
+        MeResponse: {
+            /** Username */
+            username: string;
+            /** Role */
+            role: string;
         };
         /** MonthlyAnalyticsResponse */
         MonthlyAnalyticsResponse: {
@@ -754,6 +1097,63 @@ export interface components {
             /** Page Size */
             page_size: number;
         };
+        /** PaymentCreate */
+        PaymentCreate: {
+            /** Amount */
+            amount: number | string;
+            paid: components["schemas"]["JalaliDate"];
+            /** Note */
+            note?: string | null;
+            /** Allocations */
+            allocations?: components["schemas"]["AllocationIn"][] | null;
+            /**
+             * Confirm Credit
+             * @default false
+             */
+            confirm_credit: boolean;
+        };
+        /** PaymentOut */
+        PaymentOut: {
+            /** Id */
+            id: number;
+            /** Amount */
+            amount: string;
+            /** Paid */
+            paid: [
+                number,
+                number,
+                number
+            ];
+            /** Credit */
+            credit: string;
+            /** Note */
+            note: string | null;
+            /** Created By */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Voided At */
+            voided_at: string | null;
+            /** Allocations */
+            allocations: components["schemas"]["AllocationOut"][];
+        };
+        /** PaymentPreview */
+        PaymentPreview: {
+            /** Allocations */
+            allocations: components["schemas"]["AllocationOut"][];
+            /** Credit */
+            credit: string;
+            /** Remaining After */
+            remaining_after: string;
+        };
+        /** PaymentPreviewRequest */
+        PaymentPreviewRequest: {
+            /** Amount */
+            amount: number | string;
+        };
         /** PersonAmountItem */
         PersonAmountItem: {
             /** Person Id */
@@ -763,10 +1163,19 @@ export interface components {
             /** Total */
             total: string;
         };
+        /** PersonCreate */
+        PersonCreate: {
+            /** Full Name */
+            full_name: string;
+            /** Phone */
+            phone: string;
+        };
         /** PersonDetailResponse */
         PersonDetailResponse: {
             person: components["schemas"]["PersonListItem"];
+            profile: components["schemas"]["PersonProfile"];
             guarantees: components["schemas"]["PersonGuarantees"];
+            brokered: components["schemas"]["PersonGuarantees"];
             /** Guarantors */
             guarantors: components["schemas"]["PersonGuarantorRef"][];
             /** By Year */
@@ -865,6 +1274,18 @@ export interface components {
             guarantor?: components["schemas"]["PersonRef"] | null;
         };
         /**
+         * PersonProfile
+         * @description Editable profile fields shown on the person page.
+         */
+        PersonProfile: {
+            /** Bank Account */
+            bank_account: string | null;
+            /** Messenger */
+            messenger: string | null;
+            /** Contacts */
+            contacts: components["schemas"]["ContactRef"][];
+        };
+        /**
          * PersonRef
          * @description Minimal nested person reference used in profile detail responses.
          */
@@ -875,6 +1296,20 @@ export interface components {
             full_name: string;
             /** Phone */
             phone: string;
+        };
+        /**
+         * PersonUpdate
+         * @description PATCH body.  Phone is required whenever the profile is saved.
+         */
+        PersonUpdate: {
+            /** Full Name */
+            full_name?: string | null;
+            /** Phone */
+            phone: string;
+            /** Bank Account */
+            bank_account?: string | null;
+            /** Contacts */
+            contacts?: components["schemas"]["ContactRef"][];
         };
         /** PersonYearBreakdown */
         PersonYearBreakdown: {
@@ -896,6 +1331,65 @@ export interface components {
             as_lender_paid: string;
             /** As Lender Remaining */
             as_lender_remaining: string;
+        };
+        /**
+         * Platform
+         * @description Messaging platforms (person contacts) and loan request channels.
+         * @enum {string}
+         */
+        Platform: "telegram" | "bale" | "eitaa" | "whatsapp" | "rubika" | "phone" | "in_person";
+        /** ScheduleEdit */
+        ScheduleEdit: {
+            /** Lenders */
+            lenders: components["schemas"]["LenderScheduleEdit"][];
+        };
+        /** SchedulePreview */
+        SchedulePreview: {
+            /** Lenders */
+            lenders: components["schemas"]["LenderSchedule-Output"][];
+        };
+        /** SchedulePreviewRequest */
+        SchedulePreviewRequest: {
+            /** Lenders */
+            lenders: components["schemas"]["LenderShare"][];
+            /** Months */
+            months: number;
+            first_due: components["schemas"]["JalaliDate"];
+        };
+        /** ScheduleRow */
+        ScheduleRow: {
+            /** Id */
+            id?: number | null;
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
+            /** Amount */
+            amount: number | string;
+        };
+        /** ScheduledInstallment */
+        "ScheduledInstallment-Input": {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
+            /** Amount */
+            amount: number | string;
+        };
+        /** ScheduledInstallment */
+        "ScheduledInstallment-Output": {
+            /** Year */
+            year: number;
+            /** Month */
+            month: number;
+            /** Day */
+            day: number;
+            /** Amount */
+            amount: string;
         };
         /** TopicBreakdownItem */
         TopicBreakdownItem: {
@@ -1017,6 +1511,39 @@ export interface operations {
             };
         };
     };
+    create_api_loans_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     detail_api_loans__loan_id__get: {
         parameters: {
             query?: never;
@@ -1027,6 +1554,210 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_api_loans__loan_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoanUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_preview_api_loans_schedule_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SchedulePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchedulePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payment_preview_api_loans__loan_id__payments_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payments_api_loans__loan_id__payments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payment_create_api_loans__loan_id__payments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    schedule_edit_api_loans__loan_id__schedule_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                loan_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleEdit"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1128,6 +1859,39 @@ export interface operations {
             };
         };
     };
+    create_api_persons_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     guarantors_api_persons_guarantors_get: {
         parameters: {
             query?: never;
@@ -1158,6 +1922,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_api_persons__person_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1390,6 +2189,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CirculationResponse"];
+                };
+            };
+        };
+    };
+    me_api_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    audit_api_audit_get: {
+        parameters: {
+            query: {
+                entity: string;
+                entity_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntry"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    liaisons_api_liaisons_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiaisonRow"][];
+                };
+            };
+        };
+    };
+    link_api_liaisons_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LiaisonLink"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiaisonRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_api_payments__payment_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                payment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,9 +1,19 @@
 "use client";
 
-import { use, useMemo } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 
+import {
+  EditLoanDialog,
+  EditScheduleDialog,
+  PaymentsList,
+  loanFields,
+} from "@/components/loan/LoanEditDialogs";
 import { LoanFlow } from "@/components/loan/LoanFlow";
+import { PaymentDialog } from "@/components/loan/PaymentDialog";
+import { AuditHistory } from "@/components/ui/AuditHistory";
+import { Button } from "@/components/ui/form";
+import { PlatformIcon } from "@/components/ui/PlatformIcon";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { NoteBadge } from "@/components/ui/NoteBadge";
@@ -22,7 +32,8 @@ type ScheduleRow = {
   year: number;
   month: number;
   day: number;
-  amount: number;
+  amount: number; // still due (or the whole installment once paid)
+  paidPart: number; // received so far on a partly paid installment
 };
 
 const byDate = (a: ScheduleRow, b: ScheduleRow) =>
@@ -44,9 +55,12 @@ function buildSchedule(lenders: LoanData["lenders"], today: JalaliTriple) {
         year: inst.due_persian_year,
         month: inst.due_persian_month,
         day: inst.due_day_of_month,
-        amount: Number(inst.amount),
+        amount: Number(inst.amount) - Number(inst.amount_paid),
+        paidPart: Number(inst.amount_paid),
       };
       if (inst.status === "paid") {
+        row.amount = Number(inst.amount);
+        row.paidPart = 0;
         paid.push(row);
       } else if (isPastDue(row.year, row.month, row.day, today)) {
         overdue.push(row);
@@ -66,6 +80,7 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
   const loanId = Number(id);
   const { data, isLoading, isError } = useLoan(Number.isFinite(loanId) ? loanId : null);
   const today = useMemo(() => todayJalali(), []);
+  const [dialog, setDialog] = useState<"pay" | "edit" | "schedule" | null>(null);
   const flowLenders = useMemo(
     () =>
       (data?.lenders ?? []).map((ln) => ({
@@ -94,6 +109,7 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
   const channelNumber = (loan as Record<string, unknown>).channel_number as string | null;
   const liaisonLabel = (loan as Record<string, unknown>).liaison_label as string | null;
   const description = (loan as Record<string, unknown>).description as string | null;
+  const fields = loanFields(data);
 
   return (
     <section className="space-y-6">
@@ -101,9 +117,21 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
         <Link href="/loans" className="text-sm text-slate-500 hover:text-slate-700">
           ← {messages.navLoans}
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">
-          {messages.loanNumber} {toPersianDigits(loanNumber)}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">
+            {messages.loanNumber} {toPersianDigits(loanNumber)}
+          </h1>
+          {fields.source_platform && <PlatformIcon platform={fields.source_platform} size={24} />}
+          <div className="ms-auto flex flex-wrap gap-2">
+            <Button onClick={() => setDialog("edit")}>{messages.editLoan}</Button>
+            <Button onClick={() => setDialog("schedule")}>{messages.editSchedule}</Button>
+            {!totals.settled && (
+              <Button variant="primary" onClick={() => setDialog("pay")}>
+                {messages.recordPayment}
+              </Button>
+            )}
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
           <Badge tone={totals.settled ? "settled" : "active"}>
             {totals.settled ? messages.settled : messages.active}
@@ -166,7 +194,9 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
           )}
         </ul>
         {description && (
-          <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          <p
+            className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${fields.note_flagged ? "border-red-300 bg-red-50 text-red-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}
+          >
             <NoteBadge />
             <span>{description}</span>
           </p>
@@ -179,6 +209,11 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
         <SummaryStat label={messages.paid} value={fmtMoneyMT(Number(totals.paid))} />
         <SummaryStat label={messages.remaining} value={fmtMoneyMT(Number(totals.remaining))} />
       </div>
+      {Number(totals.credit) > 0 && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          {messages.creditHeld}: {fmtMoneyMT(Number(totals.credit))}
+        </p>
+      )}
 
       <LoanFlow
         lenders={flowLenders}
@@ -227,6 +262,15 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
       <ScheduleTable title={messages.overdue} tone="overdue" rows={schedule.overdue} />
       <ScheduleTable title={messages.pending} tone="unpaid" rows={schedule.upcoming} />
       <ScheduleTable title={messages.paid} tone="paid" rows={schedule.paid} />
+
+      <PaymentsList loanId={fields.id} />
+      <AuditHistory entity="loan" id={fields.id} />
+
+      {dialog === "pay" && <PaymentDialog loan={data} onClose={() => setDialog(null)} />}
+      {dialog === "edit" && <EditLoanDialog detail={data} onClose={() => setDialog(null)} />}
+      {dialog === "schedule" && (
+        <EditScheduleDialog detail={data} onClose={() => setDialog(null)} />
+      )}
     </section>
   );
 }
@@ -282,6 +326,11 @@ function ScheduleTable({
                 </td>
                 <td className="whitespace-nowrap px-4 py-2.5 font-medium text-slate-900">
                   {fmtMoneyMT(r.amount)}
+                  {r.paidPart > 0 && (
+                    <span className="ms-2 text-xs font-normal text-paid">
+                      + {fmtMoneyMT(r.paidPart)} {messages.paidPart}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

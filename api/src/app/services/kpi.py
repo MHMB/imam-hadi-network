@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Installment, Loan, LoanParty, Person
 from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.kpi import KPIByYear, KPIResponse
+from app.services.money import REMAINING
 
 
 def _today_jalali() -> tuple[int, int, int]:
@@ -36,7 +37,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
     # outstanding = Σ unpaid installments of lender-side parties
     outstanding_total = (
         await session.execute(
-            select(func.coalesce(func.sum(Installment.amount), 0))
+            select(func.coalesce(func.sum(REMAINING), 0))
             .select_from(Installment)
             .join(LoanParty, LoanParty.id == Installment.loan_party_id)
             .where(
@@ -48,7 +49,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
 
     # A loan is "settled" if it has zero unpaid installments on the lender side.
     loan_outstanding_q = (
-        select(Loan.id, func.coalesce(func.sum(Installment.amount), 0).label("outstanding"))
+        select(Loan.id, func.coalesce(func.sum(REMAINING), 0).label("outstanding"))
         .select_from(Loan)
         .join(LoanParty, LoanParty.loan_id == Loan.id)
         .join(
@@ -79,7 +80,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
             select(
                 func.count(),
                 func.count(func.distinct(LoanParty.loan_id)),
-                func.coalesce(func.sum(Installment.amount), 0),
+                func.coalesce(func.sum(REMAINING), 0),
             )
             .select_from(Installment)
             .join(LoanParty, LoanParty.id == Installment.loan_party_id)
@@ -116,7 +117,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
         await session.execute(
             select(
                 Loan.persian_year,
-                func.coalesce(func.sum(Installment.amount), 0).label("outstanding"),
+                func.coalesce(func.sum(REMAINING), 0).label("outstanding"),
             )
             .select_from(Loan)
             .join(LoanParty, LoanParty.loan_id == Loan.id)

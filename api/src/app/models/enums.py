@@ -78,3 +78,22 @@ class IssueCategory(StrEnum):
     orphan_row = "orphan_row"
     missing_day = "missing_day"
     missing_amount = "missing_amount"
+
+
+class LoanOrigin(StrEnum):
+    """Where a loan row came from."""
+
+    import_ = "import"
+    app = "app"
+
+
+class Platform(StrEnum):
+    """Messaging platforms (person contacts) and loan request channels."""
+
+    telegram = "telegram"
+    bale = "bale"
+    eitaa = "eitaa"
+    whatsapp = "whatsapp"
+    rubika = "rubika"
+    phone = "phone"
+    in_person = "in_person"

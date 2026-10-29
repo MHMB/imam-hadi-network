@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.auth import CurrentUser
 from app.db import SessionDep
-from app.schemas.person import GuarantorOption, PersonDetailResponse, PersonListItem
+from app.schemas.loan_write import CreatedResponse, PersonCreate
+from app.schemas.person import (
+    GuarantorOption,
+    PersonDetailResponse,
+    PersonListItem,
+    PersonUpdate,
+)
 from app.services.person import get_person_detail, list_guarantor_options, list_persons
+from app.services.person_edit import create_person, update_person
 from app.services.query import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page
 
 router = APIRouter(prefix="/api/persons", tags=["persons"])
@@ -61,4 +69,25 @@ async def detail(session: SessionDep, person_id: int) -> PersonDetailResponse:
     out = await get_person_detail(session, person_id)
     if out is None:
         raise HTTPException(status_code=404, detail="person not found")
+    return out
+
+
+@router.post("", response_model=CreatedResponse, status_code=201, summary="Add a member")
+async def create(session: SessionDep, user: CurrentUser, body: PersonCreate) -> CreatedResponse:
+    person = await create_person(session, user, body.full_name, body.phone)
+    return CreatedResponse(id=person.id)
+
+
+@router.patch(
+    "/{person_id}",
+    response_model=PersonDetailResponse,
+    summary="Edit a person's profile (phone required); every change is audited",
+)
+async def update(
+    session: SessionDep, user: CurrentUser, person_id: int, body: PersonUpdate
+) -> PersonDetailResponse:
+    if await update_person(session, user, person_id, body) is None:
+        raise HTTPException(status_code=404, detail="person not found")
+    out = await get_person_detail(session, person_id)
+    assert out is not None
     return out

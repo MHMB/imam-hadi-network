@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Installment, Loan, LoanParty, LoanTopic
 from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.topic import TopicSummary
+from app.services.money import REMAINING
 
 
 async def list_topics(
@@ -43,7 +44,7 @@ async def list_topics(
     outstanding_select = (
         select(
             Loan.topic_id,
-            func.coalesce(func.sum(Installment.amount), 0).label("outstanding"),
+            func.coalesce(func.sum(REMAINING), 0).label("outstanding"),
         )
         .select_from(Loan)
         .join(LoanParty, LoanParty.loan_id == Loan.id)

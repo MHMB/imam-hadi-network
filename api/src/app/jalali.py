@@ -32,3 +32,17 @@ def safe_date(year: int, month: int, day: int) -> jdatetime.date:
     calendar math (overdue-days etc.) working on such rows.
     """
     return jdatetime.date(year, month, min(day, last_day_of_month(year, month)))
+
+
+def add_months(year: int, month: int, day: int, months: int) -> tuple[int, int, int]:
+    """Same day ``months`` later, clamped to the month's last day (31 → 30 in مهر)."""
+    index = year * 12 + (month - 1) + months
+    y, m = divmod(index, 12)
+    return (y, m + 1, min(day, last_day_of_month(y, m + 1)))
+
+
+MONTHS_PER_YEAR = 12
+
+
+def is_valid(year: int, month: int, day: int) -> bool:
+    return 1 <= month <= MONTHS_PER_YEAR and 1 <= day <= last_day_of_month(year, month)

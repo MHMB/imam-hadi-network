@@ -122,7 +122,9 @@ async def save_upload_and_register(
     return row, False, final_path
 
 
-async def process_pending_import(import_id: int, file_path: Path) -> None:
+async def process_pending_import(
+    import_id: int, file_path: Path, allow_app_data_loss: bool = False
+) -> None:
     """Background-task body: parse + validate + write into the pending row.
 
     Opens its own session because the request session is closed by the time
@@ -154,7 +156,13 @@ async def process_pending_import(import_id: int, file_path: Path) -> None:
                     log.error("import.process_missing_row", import_id=import_id)
                     return
                 duration_ms = int((time.monotonic() - started) * 1000)
-                await apply_to_existing_import(session, imp, result, duration_ms=duration_ms)
+                await apply_to_existing_import(
+                    session,
+                    imp,
+                    result,
+                    duration_ms=duration_ms,
+                    allow_app_data_loss=allow_app_data_loss,
+                )
                 loan_count = len(result.loans)
         except Exception as exc:
             error_message = str(exc)[:2000]

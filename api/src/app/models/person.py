@@ -49,6 +49,8 @@ class Person(Base, TimestampMixin):
     """Iranian national code; nullable in Phase 1, populated in Phase 2."""
 
     messenger: Mapped[str | None] = mapped_column(String(120), default=None)
+    bank_account: Mapped[str | None] = mapped_column(String(40), default=None)
+    """Account / card / شبا number as typed by the admin (optional)."""
     """Free-text — Telegram/WhatsApp/Eitaa handle, as written by admins."""
 
     is_verified: Mapped[bool] = mapped_column(
