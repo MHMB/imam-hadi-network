@@ -4,9 +4,31 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.auth import CurrentUser
 from app.db import SessionDep
 from app.schemas.loan import LoanDetailResponse, LoanListItem
+from app.schemas.loan_write import (
+    CreatedResponse,
+    LoanCreate,
+    LoanUpdate,
+    SchedulePreview,
+    SchedulePreviewRequest,
+)
+from app.schemas.payment import (
+    PaymentCreate,
+    PaymentOut,
+    PaymentPreview,
+    PaymentPreviewRequest,
+    ScheduleEdit,
+)
 from app.services.loan import get_loan_detail, list_loans
+from app.services.loan_write import create_loan, preview_schedule, update_loan
+from app.services.payment import (
+    edit_schedule,
+    list_payments,
+    preview_payment,
+    record_payment,
+)
 from app.services.query import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page, parse_int_csv
 
 router = APIRouter(prefix="/api/loans", tags=["loans"])
@@ -67,4 +89,73 @@ async def detail(session: SessionDep, loan_id: int) -> LoanDetailResponse:
     out = await get_loan_detail(session, loan_id)
     if out is None:
         raise HTTPException(status_code=404, detail="loan not found")
+    return out
+
+
+@router.post(
+    "/schedule-preview",
+    response_model=SchedulePreview,
+    summary="Generate a pro-rata installment schedule («همه متناسب»)",
+)
+async def schedule_preview(body: SchedulePreviewRequest) -> SchedulePreview:
+    return preview_schedule(body)
+
+
+@router.post("", response_model=CreatedResponse, status_code=201, summary="Create a loan")
+async def create(session: SessionDep, user: CurrentUser, body: LoanCreate) -> CreatedResponse:
+    loan = await create_loan(session, user, body)
+    return CreatedResponse(id=loan.id)
+
+
+@router.patch("/{loan_id}", response_model=LoanDetailResponse, summary="Edit loan details")
+async def update(
+    session: SessionDep, user: CurrentUser, loan_id: int, body: LoanUpdate
+) -> LoanDetailResponse:
+    if await update_loan(session, user, loan_id, body) is None:
+        raise HTTPException(status_code=404, detail="loan not found")
+    out = await get_loan_detail(session, loan_id)
+    assert out is not None
+    return out
+
+
+@router.post(
+    "/{loan_id}/payments/preview",
+    response_model=PaymentPreview,
+    summary="How a payment would be split over the schedule",
+)
+async def payment_preview(
+    session: SessionDep, loan_id: int, body: PaymentPreviewRequest
+) -> PaymentPreview:
+    return await preview_payment(session, loan_id, body.amount)
+
+
+@router.post(
+    "/{loan_id}/payments",
+    response_model=list[PaymentOut],
+    status_code=201,
+    summary="Record a payment (schedule order, or the admin's split)",
+)
+async def payment_create(
+    session: SessionDep, user: CurrentUser, loan_id: int, body: PaymentCreate
+) -> list[PaymentOut]:
+    await record_payment(session, user, loan_id, body)
+    return await list_payments(session, loan_id)
+
+
+@router.get("/{loan_id}/payments", response_model=list[PaymentOut], summary="Payments on a loan")
+async def payments(session: SessionDep, loan_id: int) -> list[PaymentOut]:
+    return await list_payments(session, loan_id)
+
+
+@router.put(
+    "/{loan_id}/schedule",
+    response_model=LoanDetailResponse,
+    summary="Edit the installment schedule (paid money stays put)",
+)
+async def schedule_edit(
+    session: SessionDep, user: CurrentUser, loan_id: int, body: ScheduleEdit
+) -> LoanDetailResponse:
+    await edit_schedule(session, user, loan_id, body)
+    out = await get_loan_detail(session, loan_id)
+    assert out is not None
     return out

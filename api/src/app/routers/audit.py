@@ -21,7 +21,7 @@ async def me(user: CurrentUser, session: SessionDep) -> MeResponse:
 @router.get("/audit", response_model=list[AuditEntry], summary="Change history of one entity")
 async def audit(
     session: SessionDep,
-    entity: str = Query(pattern="^(loan|person|payment|installment|liaison)$"),
+    entity: str = Query(pattern="^(loan|person|payment|installment|liaison|import)$"),
     entity_id: int = Query(ge=1),
 ) -> list[AuditEntry]:
     return await history(session, entity, entity_id)

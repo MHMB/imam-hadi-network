@@ -51,6 +51,45 @@ def _bank(value: str | None) -> str | None:
     return folded
 
 
+def _valid_phone(raw: str) -> tuple[str, str]:
+    phone = canonicalize(raw)
+    if phone.issue is not None or not phone.canonical:
+        raise FieldError("phone", "شماره تماس معتبر نیست. مثال: ۰۹۱۲۱۲۳۴۵۶۷")
+    return phone.canonical, phone.raw
+
+
+async def _phone_free(session: AsyncSession, canonical: str, person_id: int | None) -> None:
+    clash = (
+        await session.execute(
+            select(Person.full_name).where(Person.phone == canonical, Person.id != (person_id or 0))
+        )
+    ).scalar_one_or_none()
+    if clash is not None:
+        raise FieldError("phone", f"این شماره قبلاً برای «{clash}» ثبت شده است.", code="duplicate")
+
+
+async def create_person(session: AsyncSession, user: AppUser, full_name: str, phone: str) -> Person:
+    name = full_name.strip()
+    if not name:
+        raise FieldError("full_name", "نام نمی‌تواند خالی باشد.")
+    canonical, raw = _valid_phone(phone)
+    await _phone_free(session, canonical, None)
+    person = Person(phone=canonical, full_name=name, phone_raw=raw)
+    session.add(person)
+    await session.flush()
+    await record(
+        session,
+        user,
+        action="create",
+        entity="person",
+        entity_id=person.id,
+        before=None,
+        after=snapshot(person),
+    )
+    await session.commit()
+    return person
+
+
 async def update_person(
     session: AsyncSession, user: AppUser, person_id: int, body: PersonUpdate
 ) -> Person | None:
@@ -65,18 +104,8 @@ async def update_person(
             raise FieldError("full_name", "نام نمی‌تواند خالی باشد.")
         person.full_name = name
 
-    phone = canonicalize(body.phone)
-    if phone.issue is not None or not phone.canonical:
-        raise FieldError("phone", "شماره تماس معتبر نیست. مثال: ۰۹۱۲۱۲۳۴۵۶۷")
-    clash = (
-        await session.execute(
-            select(Person.full_name).where(Person.phone == phone.canonical, Person.id != person.id)
-        )
-    ).scalar_one_or_none()
-    if clash is not None:
-        raise FieldError("phone", f"این شماره قبلاً برای «{clash}» ثبت شده است.", code="duplicate")
-    person.phone = phone.canonical
-    person.phone_raw = phone.raw
+    person.phone, person.phone_raw = _valid_phone(body.phone)
+    await _phone_free(session, person.phone, person.id)
 
     person.bank_account = _bank(body.bank_account)
 

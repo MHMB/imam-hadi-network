@@ -9,10 +9,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Query, UploadFile
 
+from app.auth import CurrentUser
 from app.config import settings
 from app.db import SessionDep
 from app.models.enums import IssueCategory, IssueSeverity
 from app.schemas.issue import DataIssueItem, ImportDetailResponse, ImportListItem
+from app.services.audit import record
 from app.services.issue import get_import_detail, list_imports, list_issues
 from app.services.query import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page
 from app.services.upload import (
@@ -40,6 +42,7 @@ CategoryQ = Annotated[IssueCategory | None, Query()]
 )
 async def imports_upload(
     session: SessionDep,
+    user: CurrentUser,
     background: BackgroundTasks,
     files: Annotated[list[UploadFile], File(description="One or more .xlsm files")],
     confirm_app_data_loss: Annotated[
@@ -70,6 +73,17 @@ async def imports_upload(
         except NotAnXlsm as exc:
             raise HTTPException(status_code=415, detail=str(exc)) from exc
 
+        allow_loss = confirm_app_data_loss and settings.import_guard == "confirm"
+        if allow_loss and not deduped:
+            await record(
+                session,
+                user,
+                action="confirm_data_loss",
+                entity="import",
+                entity_id=row.id,
+                before=None,
+                after={"file": upload.filename, "sha256": row.source_sha256},
+            )
         await session.commit()  # persist the Import row before scheduling the task
 
         if not deduped and path is not None:
@@ -77,7 +91,7 @@ async def imports_upload(
                 process_pending_import,
                 row.id,
                 path,
-                confirm_app_data_loss and settings.import_guard == "confirm",
+                allow_loss,
             )
 
         out.append(

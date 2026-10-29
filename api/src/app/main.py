@@ -16,6 +16,7 @@ from sqlalchemy import text
 
 from app import __version__
 from app.config import settings
+from app.csrf import same_origin_only
 from app.db import SessionLocal
 from app.errors import FieldError, field_error_handler
 from app.logging import configure_logging, get_logger
@@ -26,6 +27,7 @@ from app.routers import kpi as kpi_router
 from app.routers import liaison as liaison_router
 from app.routers import loan as loan_router
 from app.routers import overdue as overdue_router
+from app.routers import payment as payment_router
 from app.routers import person as person_router
 from app.routers import topic as topic_router
 
@@ -56,6 +58,7 @@ app.add_middleware(
 )
 
 app.add_exception_handler(FieldError, field_error_handler)
+app.middleware("http")(same_origin_only)
 app.include_router(kpi_router.router)
 app.include_router(loan_router.router)
 app.include_router(overdue_router.router)
@@ -65,6 +68,7 @@ app.include_router(issue_router.router)
 app.include_router(analytics_router.router)
 app.include_router(audit_router.router)
 app.include_router(liaison_router.router)
+app.include_router(payment_router.router)
 
 
 @app.get("/api/health", tags=["meta"])

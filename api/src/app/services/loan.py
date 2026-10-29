@@ -16,6 +16,7 @@ from app.models import (
     Loan,
     LoanParty,
     LoanTopic,
+    Payment,
     Person,
 )
 from app.models.enums import InstallmentStatus, LoanPartyRole
@@ -110,6 +111,8 @@ async def list_loans(
             Loan.loan_number,
             Loan.channel_number,
             Loan.description,
+            Loan.note_flagged,
+            Loan.source_platform,
             Loan.liaison_label,
             Loan.total_amount,
             LoanTopic.name.label("topic_name"),
@@ -224,6 +227,8 @@ async def list_loans(
             remaining=Decimal(row.remaining),
             status="settled" if Decimal(row.remaining) == 0 else "active",
             has_note=bool((row.description or "").strip()),
+            note_flagged=row.note_flagged,
+            source_platform=row.source_platform,
         )
         for row in rows
     ]
@@ -349,6 +354,15 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
         paid=sum((lp.paid for lp in lenders), Decimal(0)),
         remaining=sum((lp.remaining for lp in lenders), Decimal(0)),
         settled=all(lp.remaining == 0 for lp in lenders),
+        credit=Decimal(
+            (
+                await session.execute(
+                    select(func.coalesce(func.sum(Payment.credit), 0)).where(
+                        Payment.loan_id == loan_obj.id, Payment.voided_at.is_(None)
+                    )
+                )
+            ).scalar_one()
+        ),
     )
 
     return LoanDetailResponse(
@@ -360,6 +374,24 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
             "total_amount": str(loan_obj.total_amount),
             "liaison_label": loan_obj.liaison_label,
             "description": loan_obj.description,
+            "note_flagged": loan_obj.note_flagged,
+            "origin": loan_obj.origin.value,
+            "source_platform": loan_obj.source_platform.value if loan_obj.source_platform else None,
+            "issued": (
+                [
+                    loan_obj.issued_persian_year,
+                    loan_obj.issued_persian_month,
+                    loan_obj.issued_persian_day,
+                ]
+                if loan_obj.issued_persian_year
+                else None
+            ),
+            "liaison_person": (
+                {"id": lp_.id, "full_name": lp_.full_name}
+                if loan_obj.liaison_person_id
+                and (lp_ := await session.get(Person, loan_obj.liaison_person_id)) is not None
+                else None
+            ),
         },
         topic=TopicRef(id=topic_obj.id, name=topic_obj.name),
         guarantor=guarantor,
