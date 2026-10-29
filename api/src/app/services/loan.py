@@ -186,12 +186,10 @@ async def list_loans(
 
     total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
-    # Loan numbers are stored as text but are numeric; order on the digits so
-    # "1000" sorts after "999". Non-numeric synthesised numbers sort last.
-    loan_number_numeric = cast(
-        func.nullif(func.regexp_replace(Loan.loan_number, r"\D", "", "g"), ""),
-        BigInteger,
-    )
+    # Loan numbers are stored as text but are numeric; order on the leading
+    # digits so "1000" sorts after "999" and a synthesised "1334-r102" sorts
+    # beside 1334 (not as 1334102). No leading digits → NULL → sorts last.
+    loan_number_numeric = cast(func.substring(Loan.loan_number, r"^\d+"), BigInteger)
     sort_columns = {
         "loan_number": loan_number_numeric,
         "year": Loan.persian_year,

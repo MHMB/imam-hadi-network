@@ -3,21 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { NAV_ITEMS } from "./nav-items";
+import { activeNavHref, NAV_ITEMS } from "./nav-items";
 
 export function BottomNav({ className = "" }: { className?: string }) {
-  const pathname = usePathname();
+  const current = activeNavHref(usePathname());
   return (
     <nav
       className={`fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white shadow-lg ${className}`}
       aria-label="نوار پیمایش"
     >
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-6">
         {NAV_ITEMS.map((item) => {
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = item.href === current;
           return (
             <li key={item.href}>
               <Link

@@ -14,7 +14,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { OverduePreview } from "@/components/home/OverduePreview";
 import { Card, KpiCard } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
@@ -74,8 +73,6 @@ export default function HomePage() {
               tone={data.overdue_installments > 0 ? "danger" : "default"}
             />
           </div>
-
-          <OverduePreview />
 
           {/* Monthly money circulation — whole history */}
           {circulation.data && circulation.data.months.length > 0 && (

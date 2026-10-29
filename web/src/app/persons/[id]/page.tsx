@@ -121,8 +121,27 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
       {/* Collapsible loans (default closed), tabs inside */}
       <LoansAccordion personId={personId} borrowedCount={borrowedCount} lentCount={lentCount} />
 
-      <InstallmentSection title={messages.overdue} tone="overdue" items={overdue} />
-      <InstallmentSection title={messages.profileUpcoming} tone="unpaid" items={upcoming} />
+      {/* Each list is split by side: what this person owes vs what is owed to them. */}
+      <InstallmentSection
+        title={messages.profileOverdueDebt}
+        tone="overdue"
+        items={overdue.filter((i) => i.role === "borrower")}
+      />
+      <InstallmentSection
+        title={messages.profileOverdueReceivable}
+        tone="overdue"
+        items={overdue.filter((i) => i.role === "lender")}
+      />
+      <InstallmentSection
+        title={messages.profileUpcomingDebt}
+        tone="unpaid"
+        items={upcoming.filter((i) => i.role === "borrower")}
+      />
+      <InstallmentSection
+        title={messages.profileUpcomingReceivable}
+        tone="unpaid"
+        items={upcoming.filter((i) => i.role === "lender")}
+      />
     </section>
   );
 }
@@ -326,8 +345,13 @@ function InstallmentSection({
   if (items.length === 0) return null;
   return (
     <Card className="p-0">
-      <h2 className="border-b border-slate-100 px-4 py-3 text-lg font-semibold text-slate-900">
-        {title} ({toPersianDigits(items.length)})
+      <h2 className="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-100 px-4 py-3 text-lg font-semibold text-slate-900">
+        <span>
+          {title} ({toPersianDigits(items.length)})
+        </span>
+        <span className="text-sm font-medium text-slate-600">
+          {fmtMoneyMT(items.reduce((acc, i) => acc + Number(i.amount), 0))}
+        </span>
       </h2>
       <ul className="divide-y divide-slate-100">
         {items.map((i, idx) => (
