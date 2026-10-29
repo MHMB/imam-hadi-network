@@ -63,3 +63,20 @@ class LiaisonAlias(Base):
     person_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("person.id", ondelete="CASCADE"), nullable=True, default=None
     )
+
+
+class PersonAlias(Base):
+    """Another spelling of a merged person's name.
+
+    The importer maps the name to ``person_id`` on every import, so people
+    an admin merged stay merged when the workbook is uploaded again.
+    """
+
+    __tablename__ = "person_alias"
+
+    name_key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    """``resolve_key`` of the merged-away name."""
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    person_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("person.id", ondelete="CASCADE"), nullable=False, index=True
+    )
