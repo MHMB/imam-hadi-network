@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 import jdatetime
 from sqlalchemy import and_, func, literal, or_, select, tuple_
@@ -43,10 +44,34 @@ def _days_overdue(due: tuple[int, int, int], today: tuple[int, int, int]) -> int
     return int(max(diff, 0))
 
 
+def _extra_filters(
+    year: int | None,
+    due_from: tuple[int, int, int] | None,
+    due_to: tuple[int, int, int] | None,
+) -> list[Any]:
+    """Optional loan-year and inclusive due-date-range filters."""
+    due = tuple_(
+        Installment.due_persian_year,
+        Installment.due_persian_month,
+        Installment.due_day_of_month,
+    )
+    filters: list[Any] = []
+    if year is not None:
+        filters.append(Loan.persian_year == year)
+    if due_from is not None:
+        filters.append(due >= tuple_(*(literal(v) for v in due_from)))
+    if due_to is not None:
+        filters.append(due <= tuple_(*(literal(v) for v in due_to)))
+    return filters
+
+
 async def list_overdue(
     session: AsyncSession,
     *,
     min_days_overdue: int = 0,
+    year: int | None = None,
+    due_from: tuple[int, int, int] | None = None,
+    due_to: tuple[int, int, int] | None = None,
     page: int = 1,
     page_size: int = 50,
 ) -> Page[OverdueInstallmentItem]:
@@ -72,6 +97,7 @@ async def list_overdue(
             Loan.id.label("loan_id"),
             Loan.loan_number,
             Loan.persian_year,
+            Loan.description,
             LoanTopic.name.label("topic_name"),
             Installment.due_persian_year,
             Installment.due_persian_month,
@@ -111,6 +137,7 @@ async def list_overdue(
                 Installment.due_day_of_month,
             )
             < tuple_(literal(today_y), literal(today_m), literal(today_d)),
+            *_extra_filters(year, due_from, due_to),
         )
         .order_by(
             Installment.due_persian_year,
@@ -133,6 +160,7 @@ async def list_overdue(
                 loan_id=r.loan_id,
                 loan_number=r.loan_number,
                 persian_year=r.persian_year,
+                has_note=bool((r.description or "").strip()),
                 topic_name=r.topic_name,
                 borrower=PersonRef(id=r.b_id, full_name=r.b_name, phone=r.b_phone),
                 lender=PersonRef(id=r.l_id, full_name=r.l_name, phone=r.l_phone),

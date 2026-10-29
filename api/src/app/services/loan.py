@@ -108,6 +108,7 @@ async def list_loans(
             Loan.persian_year,
             Loan.loan_number,
             Loan.channel_number,
+            Loan.description,
             Loan.liaison_label,
             Loan.total_amount,
             LoanTopic.name.label("topic_name"),
@@ -221,6 +222,7 @@ async def list_loans(
             paid=Decimal(row.paid),
             remaining=Decimal(row.remaining),
             status="settled" if Decimal(row.remaining) == 0 else "active",
+            has_note=bool((row.description or "").strip()),
         )
         for row in rows
     ]

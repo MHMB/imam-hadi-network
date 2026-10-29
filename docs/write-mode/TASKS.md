@@ -25,13 +25,13 @@ in DESIGN.md §7 are answered.
 
 ## Phase A2 — frontend + read-only API (no migration)
 
-- [ ] **A2.1 (R3)** API `/api/kpi`: add `overdue_loans` (loans with ≥1 unpaid installment past due) and `overdue_amount` (Σ those installments). Home cards: «قرض‌های فعال» (replaces «تعداد افراد»), «قرض‌های معوق» + overdue amount (replaces «اقساط معوق»), «مجموع مانده» stays.
-- [ ] **A2.2 (R6)** API `/api/installments/overdue`: add `year` (loan year), `due_from` / `due_to` (Jalali `YYYY-MM-DD`). Web: year select that filters; Jalali date-range control (day / month / year inputs ×2, validated with jalaali-js); filters in URL.
-- [ ] **A2.3 (R8)** API `/api/persons`: return each person's member guarantor (`person_guarantor` slot `main`) and `overdue_total`; add `guarantor_id` filter and `sort` = `lent | borrowed | net | overdue` (+ `sort_dir`). New `GET /api/persons/guarantors` (distinct guarantors, for the dropdown).
-- [ ] **A2.4 (R8)** Persons list UI: «ضامن» column replaces «تأییدشده» (verified moves to a small badge by the name); «جمع معوقات» column; sortable headers; searchable guarantor filter that filters the whole table.
-- [ ] **A2.5 (R9a)** API `/api/persons/{id}`: `guarantees` block from `loan.guarantor_id` — loans guaranteed (count, list), total guaranteed, still in installments, overdue on them. Profile section «ضمانت‌ها».
+- [x] **A2.1 (R3)** API `/api/kpi`: add `overdue_loans` (loans with ≥1 unpaid installment past due) and `overdue_amount` (Σ those installments). Home cards: «قرض‌های فعال» (replaces «تعداد افراد»), «قرض‌های معوق» + overdue amount (replaces «اقساط معوق»), «مجموع مانده» stays.
+- [x] **A2.2 (R6)** API `/api/installments/overdue`: add `year` (loan year), `due_from` / `due_to` (Jalali `YYYY-MM-DD`). Web: year select that filters; Jalali date-range control (day / month / year inputs ×2, validated with jalaali-js); filters in URL.
+- [x] **A2.3 (R8)** API `/api/persons`: return each person's member guarantor (`person_guarantor` slot `main`) and `overdue_total`; add `guarantor_id` filter and `sort` = `lent | borrowed | net | overdue` (+ `sort_dir`). New `GET /api/persons/guarantors` (distinct guarantors, for the dropdown).
+- [x] **A2.4 (R8)** Persons list UI: «ضامن» column replaces «تأییدشده» (verified moves to a small badge by the name); «جمع معوقات» column; sortable headers; searchable guarantor filter that filters the whole table.
+- [x] **A2.5 (R9a)** API `/api/persons/{id}`: `guarantees` block from `loan.guarantor_id` — loans guaranteed (count, list), total guaranteed, still in installments, overdue on them. Profile section «ضمانت‌ها».
 - [ ] **A2.6 (R10)** API `/api/persons/{id}`: `monthly` series — paid out (as borrower) and received (as lender) per Jalali month, with net. Profile chart + table. *(Blocked by Q6 — confirm meaning first.)*
-- [ ] **A2.7 (R14a)** Loans API list item + person loan lists: expose `has_note` (existing `loan.description` not empty). Badge icon on loan rows (loans list, person accordion, overdue page); note text shown on the loan page.
+- [x] **A2.7 (R14a)** Loans API list item + person loan lists: expose `has_note` (existing `loan.description` not empty). Badge icon on loan rows (loans list, person accordion, overdue page); note text shown on the loan page.
 
 ---
 

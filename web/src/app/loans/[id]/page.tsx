@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LoanFlow } from "@/components/loan/LoanFlow";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { NoteBadge } from "@/components/ui/NoteBadge";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { JALALI_MONTHS, messages } from "@/lib/i18n";
@@ -164,7 +165,12 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
             </li>
           )}
         </ul>
-        {description && <p className="text-sm text-slate-700">{description}</p>}
+        {description && (
+          <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            <NoteBadge />
+            <span>{description}</span>
+          </p>
+        )}
       </header>
 
       {/* Totals strip */}

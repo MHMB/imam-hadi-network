@@ -105,7 +105,15 @@ async def test_person_detail_includes_per_year_and_lifetime(
     r = await seeded_client.get(f"/api/persons/{n2['id']}")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert set(body) == {"person", "guarantors", "by_year", "lifetime", "upcoming", "overdue"}
+    assert set(body) == {
+        "person",
+        "guarantors",
+        "guarantees",
+        "by_year",
+        "lifetime",
+        "upcoming",
+        "overdue",
+    }
     assert body["person"]["full_name"] == "نفر 2"
     # 1404 only — نفر 2 doesn't appear as lender in 1405 sample loans.
     years = {y["year"] for y in body["by_year"]}
@@ -119,3 +127,59 @@ async def test_person_detail_includes_per_year_and_lifetime(
 async def test_person_detail_404(seeded_client: AsyncClient) -> None:
     r = await seeded_client.get("/api/persons/999999")
     assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_persons_sort_by_money_columns(seeded_client: AsyncClient) -> None:
+    for key, field in (
+        ("lent", "total_lent"),
+        ("borrowed", "total_borrowed"),
+        ("overdue", "overdue_debt"),
+    ):
+        body = (
+            await seeded_client.get(
+                "/api/persons", params={"sort": key, "sort_dir": "desc", "page_size": 200}
+            )
+        ).json()
+        values = [float(p[field]) for p in body["items"]]
+        assert values == sorted(values, reverse=True), key
+    net = (await seeded_client.get("/api/persons?sort=net&sort_dir=asc&page_size=200")).json()
+    nets = [float(p["net_capital"]) for p in net["items"]]
+    assert nets == sorted(nets)
+
+
+@pytest.mark.asyncio
+async def test_persons_overdue_debt_is_part_of_debt(seeded_client: AsyncClient) -> None:
+    items = (await seeded_client.get("/api/persons?page_size=200")).json()["items"]
+    assert all(float(p["overdue_debt"]) <= float(p["outstanding_debt"]) for p in items)
+    assert any(float(p["overdue_debt"]) > 0 for p in items), "sample has late borrowers"
+
+
+@pytest.mark.asyncio
+async def test_guarantor_options_and_filter(seeded_client: AsyncClient) -> None:
+    options = (await seeded_client.get("/api/persons/guarantors")).json()
+    assert options, "sample افراد sheet has main guarantors"
+    top = max(options, key=lambda o: o["members"])
+    filtered = (
+        await seeded_client.get(
+            "/api/persons", params={"guarantor_id": top["id"], "page_size": 200}
+        )
+    ).json()
+    assert filtered["total"] == top["members"]
+    assert all(p["guarantor"]["id"] == top["id"] for p in filtered["items"])
+
+
+@pytest.mark.asyncio
+async def test_person_detail_guarantees(seeded_client: AsyncClient) -> None:
+    loans = (await seeded_client.get("/api/loans?page_size=200")).json()["items"]
+    details = [(await seeded_client.get(f"/api/loans/{ln['id']}")).json() for ln in loans]
+    guaranteed = [d for d in details if d["guarantor"]]
+    assert guaranteed, "sample has loans with a per-loan guarantor"
+    gid = guaranteed[0]["guarantor"]["id"]
+    expected = {d["loan"]["id"] for d in guaranteed if d["guarantor"]["id"] == gid}
+
+    g = (await seeded_client.get(f"/api/persons/{gid}")).json()["guarantees"]
+    assert {ln["loan_id"] for ln in g["loans"]} == expected
+    assert g["loan_count"] == len(expected)
+    assert float(g["remaining"]) == pytest.approx(sum(float(ln["remaining"]) for ln in g["loans"]))
+    assert all(float(ln["overdue"]) <= float(ln["remaining"]) for ln in g["loans"])

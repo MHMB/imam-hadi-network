@@ -70,13 +70,21 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
     ).scalar_one()
     loans_settled = loans_total - loans_active
 
-    # Overdue: unpaid installments whose due date < today (Jalali, lexicographic).
+    # Overdue: unpaid lender-side installments whose due date < today
+    # (Jalali row comparison).  One pass gives the installment count, the
+    # number of loans with at least one late installment, and the late amount.
     today_y, today_m, today_d = _today_jalali()
-    overdue_installments = (
+    overdue_installments, overdue_loans, overdue_amount = (
         await session.execute(
-            select(func.count())
+            select(
+                func.count(),
+                func.count(func.distinct(LoanParty.loan_id)),
+                func.coalesce(func.sum(Installment.amount), 0),
+            )
             .select_from(Installment)
+            .join(LoanParty, LoanParty.id == Installment.loan_party_id)
             .where(
+                LoanParty.role == LoanPartyRole.lender,
                 Installment.status == InstallmentStatus.unpaid,
                 # (year, month, day) < (today_y, today_m, today_d) via Postgres
                 # row comparison.  tuple_() wraps the columns in SQL ROW(...).
@@ -88,7 +96,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
                 < tuple_(literal(today_y), literal(today_m), literal(today_d)),
             )
         )
-    ).scalar_one()
+    ).one()
 
     # Per-year breakdown
     year_rows = (
@@ -140,5 +148,7 @@ async def get_kpi(session: AsyncSession) -> KPIResponse:
         total_amount=Decimal(total_amount),
         outstanding_total=Decimal(outstanding_total),
         overdue_installments=overdue_installments,
+        overdue_loans=overdue_loans,
+        overdue_amount=Decimal(overdue_amount),
         by_year=by_year,
     )

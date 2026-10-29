@@ -22,6 +22,8 @@ class PersonListItem(BaseModel):
     outstanding_receivable: Decimal
     outstanding_debt: Decimal
     net_capital: Decimal
+    overdue_debt: Decimal = Decimal(0)  # past-due part of outstanding_debt
+    guarantor: PersonRef | None = None  # member guarantor (افراد sheet, main slot)
 
 
 class PersonGuarantorRef(BaseModel):
@@ -69,8 +71,40 @@ class PersonInstallmentRef(BaseModel):
     role: str  # 'borrower' or 'lender' — which side the person is on for this loan
 
 
+class GuaranteedLoan(BaseModel):
+    """A loan this person guaranteed (loan.guarantor_id)."""
+
+    loan_id: int
+    loan_number: str
+    persian_year: int
+    borrower_name: str
+    total: Decimal
+    remaining: Decimal
+    overdue: Decimal
+
+
+class PersonGuarantees(BaseModel):
+    """Exposure as a per-loan guarantor."""
+
+    loan_count: int
+    active_count: int
+    total: Decimal  # Σ loan totals guaranteed
+    remaining: Decimal  # still being repaid
+    overdue: Decimal  # past-due part of remaining
+    loans: list[GuaranteedLoan]
+
+
+class GuarantorOption(BaseModel):
+    """A member guarantor for the persons-list filter."""
+
+    id: int
+    full_name: str
+    members: int
+
+
 class PersonDetailResponse(BaseModel):
     person: PersonListItem
+    guarantees: PersonGuarantees
     guarantors: list[PersonGuarantorRef]
     by_year: list[PersonYearBreakdown]
     lifetime: PersonLifetime
@@ -79,3 +113,4 @@ class PersonDetailResponse(BaseModel):
 
 
 PersonGuarantorRef.model_rebuild()
+PersonListItem.model_rebuild()

@@ -170,3 +170,11 @@ async def test_loans_due_within_days_subsets(seeded_client: AsyncClient) -> None
     # Every returned loan must be active (has an unpaid installment to be due).
     for it in huge["items"]:
         assert it["status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_loans_has_note_matches_description(seeded_client: AsyncClient) -> None:
+    items = (await seeded_client.get("/api/loans?page_size=200")).json()["items"]
+    for ln in items:
+        detail = (await seeded_client.get(f"/api/loans/{ln['id']}")).json()
+        assert ln["has_note"] == bool((detail["loan"].get("description") or "").strip())

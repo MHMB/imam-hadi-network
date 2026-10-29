@@ -13,8 +13,9 @@ from decimal import Decimal
 from typing import Any
 
 import jdatetime
-from sqlalchemy import case, func, literal, or_, select
+from sqlalchemy import and_, case, func, literal, nulls_last, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models import (
     Installment,
@@ -29,7 +30,10 @@ from app.models.enums import (
     LoanPartyRole,
 )
 from app.schemas.person import (
+    GuaranteedLoan,
+    GuarantorOption,
     PersonDetailResponse,
+    PersonGuarantees,
     PersonGuarantorRef,
     PersonInstallmentRef,
     PersonLifetime,
@@ -120,6 +124,27 @@ def _rollup_subq() -> Any:
         .subquery()
     )
 
+    # Past-due part of the debt: same join, plus due date < today.
+    ty, tm, td = _today_jalali()
+    borrower_overdue_subq = (
+        select(
+            borrower_lp.c.person_id.label("person_id"),
+            func.coalesce(func.sum(inst.c.amount), 0).label("overdue_debt"),
+        )
+        .select_from(borrower_lp)
+        .join(lender_lp, lender_lp.c.loan_id == borrower_lp.c.loan_id)
+        .join(inst, inst.c.loan_party_id == lender_lp.c.id)
+        .where(
+            borrower_lp.c.role == LoanPartyRole.borrower.value,
+            lender_lp.c.role == LoanPartyRole.lender.value,
+            inst.c.status == InstallmentStatus.unpaid.value,
+            tuple_(inst.c.due_persian_year, inst.c.due_persian_month, inst.c.due_day_of_month)
+            < tuple_(literal(ty), literal(tm), literal(td)),
+        )
+        .group_by(borrower_lp.c.person_id)
+        .subquery()
+    )
+
     return (
         select(
             Person.id.label("person_id"),
@@ -129,6 +154,7 @@ def _rollup_subq() -> Any:
             ),
             func.coalesce(borrower_subq.c.total_borrowed, 0).label("total_borrowed"),
             func.coalesce(borrower_debt_subq.c.outstanding_debt, 0).label("outstanding_debt"),
+            func.coalesce(borrower_overdue_subq.c.overdue_debt, 0).label("overdue_debt"),
         )
         .select_from(Person)
         .join(lender_total_subq, lender_total_subq.c.person_id == Person.id, isouter=True)
@@ -139,6 +165,7 @@ def _rollup_subq() -> Any:
         )
         .join(borrower_subq, borrower_subq.c.person_id == Person.id, isouter=True)
         .join(borrower_debt_subq, borrower_debt_subq.c.person_id == Person.id, isouter=True)
+        .join(borrower_overdue_subq, borrower_overdue_subq.c.person_id == Person.id, isouter=True)
         .subquery()
     )
 
@@ -157,6 +184,12 @@ def _row_to_list_item(person_row: Any, rollup_row: Any) -> PersonListItem:
         outstanding_receivable=receivable,
         outstanding_debt=debt,
         net_capital=receivable - debt,
+        overdue_debt=Decimal(rollup_row.overdue_debt or 0),
+        guarantor=(
+            PersonRef(id=g_id, full_name=person_row.g_name, phone=person_row.g_phone)
+            if (g_id := getattr(person_row, "g_id", None)) is not None
+            else None
+        ),
     )
 
 
@@ -170,11 +203,17 @@ async def list_persons(
     verified_only: bool = False,
     has_debt: bool = False,
     has_receivable: bool = False,
+    guarantor_id: int | None = None,
+    sort: str | None = None,  # name | lent | borrowed | net | overdue
+    sort_dir: str = "asc",
     page: int = 1,
     page_size: int = 50,
 ) -> Page[PersonListItem]:
-    """Paginated person list with search + flags."""
+    """Paginated person list with search, flags, member-guarantor filter and sort."""
     rollup = _rollup_subq()
+    # Member guarantor = the «main» slot from the افراد sheet.
+    g_link = aliased(PersonGuarantor)
+    g_person = aliased(Person)
 
     base = (
         select(
@@ -187,12 +226,24 @@ async def list_persons(
             rollup.c.outstanding_receivable,
             rollup.c.total_borrowed,
             rollup.c.outstanding_debt,
+            rollup.c.overdue_debt,
+            g_person.id.label("g_id"),
+            g_person.full_name.label("g_name"),
+            g_person.phone.label("g_phone"),
         )
         .select_from(Person)
         .join(rollup, rollup.c.person_id == Person.id, isouter=True)
+        .join(
+            g_link,
+            and_(g_link.person_id == Person.id, g_link.role == GuarantorRole.main),
+            isouter=True,
+        )
+        .join(g_person, g_person.id == g_link.guarantor_id, isouter=True)
     )
 
     filters: list[Any] = []
+    if guarantor_id is not None:
+        filters.append(g_link.guarantor_id == guarantor_id)
     if verified_only:
         filters.append(Person.is_verified.is_(True))
     if has_debt:
@@ -217,7 +268,20 @@ async def list_persons(
     total = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar_one()
 
     offset, limit = page_bounds(page, page_size)
-    page_q = base.order_by(Person.full_name).offset(offset).limit(limit)
+    zero = literal(0)
+    sort_columns: dict[str, Any] = {
+        "name": Person.full_name,
+        "lent": func.coalesce(rollup.c.total_lent, zero),
+        "borrowed": func.coalesce(rollup.c.total_borrowed, zero),
+        "net": func.coalesce(rollup.c.outstanding_receivable, zero)
+        - func.coalesce(rollup.c.outstanding_debt, zero),
+        "overdue": func.coalesce(rollup.c.overdue_debt, zero),
+    }
+    col = sort_columns.get(sort or "name", Person.full_name)
+    primary = col.desc() if sort_dir == "desc" else col.asc()
+    page_q = (
+        base.order_by(nulls_last(primary), Person.full_name, Person.id).offset(offset).limit(limit)
+    )
     rows = (await session.execute(page_q)).all()
 
     return Page[PersonListItem](
@@ -245,6 +309,7 @@ async def get_person_detail(session: AsyncSession, person_id: int) -> PersonDeta
                 rollup.c.outstanding_receivable,
                 rollup.c.total_borrowed,
                 rollup.c.outstanding_debt,
+                rollup.c.overdue_debt,
             )
             .select_from(Person)
             .join(rollup, rollup.c.person_id == Person.id, isouter=True)
@@ -261,6 +326,7 @@ async def get_person_detail(session: AsyncSession, person_id: int) -> PersonDeta
 
     return PersonDetailResponse(
         person=list_item,
+        guarantees=await _person_guarantees(session, person_id),
         guarantors=guarantors,
         by_year=by_year,
         lifetime=PersonLifetime(
@@ -271,6 +337,95 @@ async def get_person_detail(session: AsyncSession, person_id: int) -> PersonDeta
         upcoming=upcoming,
         overdue=overdue,
     )
+
+
+async def _person_guarantees(session: AsyncSession, person_id: int) -> PersonGuarantees:
+    """Loans this person guaranteed (loan.guarantor_id), with exposure."""
+    ty, tm, td = _today_jalali()
+    unpaid = Installment.status == InstallmentStatus.unpaid
+    late = and_(
+        unpaid,
+        tuple_(
+            Installment.due_persian_year,
+            Installment.due_persian_month,
+            Installment.due_day_of_month,
+        )
+        < tuple_(literal(ty), literal(tm), literal(td)),
+    )
+    money = (
+        select(
+            LoanParty.loan_id.label("loan_id"),
+            func.coalesce(func.sum(case((unpaid, Installment.amount), else_=0)), 0).label(
+                "remaining"
+            ),
+            func.coalesce(func.sum(case((late, Installment.amount), else_=0)), 0).label("overdue"),
+        )
+        .join(Installment, Installment.loan_party_id == LoanParty.id)
+        .join(Loan, Loan.id == LoanParty.loan_id)
+        .where(LoanParty.role == LoanPartyRole.lender, Loan.guarantor_id == person_id)
+        .group_by(LoanParty.loan_id)
+        .subquery()
+    )
+    borrower = (
+        select(LoanParty.loan_id.label("loan_id"), func.min(Person.full_name).label("name"))
+        .join(Person, Person.id == LoanParty.person_id)
+        .where(LoanParty.role == LoanPartyRole.borrower)
+        .group_by(LoanParty.loan_id)
+        .subquery()
+    )
+    remaining = func.coalesce(money.c.remaining, 0)
+    overdue = func.coalesce(money.c.overdue, 0)
+    rows = (
+        await session.execute(
+            select(
+                Loan.id,
+                Loan.loan_number,
+                Loan.persian_year,
+                Loan.total_amount,
+                remaining.label("remaining"),
+                overdue.label("overdue"),
+                func.coalesce(borrower.c.name, "").label("borrower_name"),
+            )
+            .outerjoin(money, money.c.loan_id == Loan.id)
+            .outerjoin(borrower, borrower.c.loan_id == Loan.id)
+            .where(Loan.guarantor_id == person_id)
+            .order_by(overdue.desc(), remaining.desc(), Loan.persian_year.desc(), Loan.id.desc())
+        )
+    ).all()
+    loans = [
+        GuaranteedLoan(
+            loan_id=r.id,
+            loan_number=r.loan_number,
+            persian_year=r.persian_year,
+            borrower_name=r.borrower_name,
+            total=Decimal(r.total_amount),
+            remaining=Decimal(r.remaining),
+            overdue=Decimal(r.overdue),
+        )
+        for r in rows
+    ]
+    return PersonGuarantees(
+        loan_count=len(loans),
+        active_count=sum(1 for ln in loans if ln.remaining > 0),
+        total=sum((ln.total for ln in loans), Decimal(0)),
+        remaining=sum((ln.remaining for ln in loans), Decimal(0)),
+        overdue=sum((ln.overdue for ln in loans), Decimal(0)),
+        loans=loans,
+    )
+
+
+async def list_guarantor_options(session: AsyncSession) -> list[GuarantorOption]:
+    """Every member guarantor (main slot) with how many members they vouch for."""
+    rows = (
+        await session.execute(
+            select(Person.id, Person.full_name, func.count().label("members"))
+            .join(PersonGuarantor, PersonGuarantor.guarantor_id == Person.id)
+            .where(PersonGuarantor.role == GuarantorRole.main)
+            .group_by(Person.id, Person.full_name)
+            .order_by(Person.full_name)
+        )
+    ).all()
+    return [GuarantorOption(id=r.id, full_name=r.full_name, members=r.members) for r in rows]
 
 
 async def _person_guarantors(session: AsyncSession, person_id: int) -> list[PersonGuarantorRef]:

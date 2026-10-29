@@ -92,6 +92,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/persons/guarantors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Member guarantors for the persons-list filter */
+        get: operations["guarantors_api_persons_guarantors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/persons/{person_id}": {
         parameters: {
             query?: never;
@@ -325,6 +342,38 @@ export interface components {
             } | null;
         };
         /**
+         * GuaranteedLoan
+         * @description A loan this person guaranteed (loan.guarantor_id).
+         */
+        GuaranteedLoan: {
+            /** Loan Id */
+            loan_id: number;
+            /** Loan Number */
+            loan_number: string;
+            /** Persian Year */
+            persian_year: number;
+            /** Borrower Name */
+            borrower_name: string;
+            /** Total */
+            total: string;
+            /** Remaining */
+            remaining: string;
+            /** Overdue */
+            overdue: string;
+        };
+        /**
+         * GuarantorOption
+         * @description A member guarantor for the persons-list filter.
+         */
+        GuarantorOption: {
+            /** Id */
+            id: number;
+            /** Full Name */
+            full_name: string;
+            /** Members */
+            members: number;
+        };
+        /**
          * GuarantorRole
          * @description Ordered slots a person's main + secondary guarantors fill (4 max).
          * @enum {string}
@@ -492,6 +541,10 @@ export interface components {
             outstanding_total: string;
             /** Overdue Installments */
             overdue_installments: number;
+            /** Overdue Loans */
+            overdue_loans: number;
+            /** Overdue Amount */
+            overdue_amount: string;
             /** By Year */
             by_year: components["schemas"]["KPIByYear"][];
         };
@@ -559,6 +612,11 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "settled";
+            /**
+             * Has Note
+             * @default false
+             */
+            has_note: boolean;
         };
         /** LoanPartyRef */
         LoanPartyRef: {
@@ -620,6 +678,11 @@ export interface components {
             loan_number: string;
             /** Persian Year */
             persian_year: number;
+            /**
+             * Has Note
+             * @default false
+             */
+            has_note: boolean;
             /** Topic Name */
             topic_name: string;
             borrower: components["schemas"]["PersonRef"];
@@ -703,6 +766,7 @@ export interface components {
         /** PersonDetailResponse */
         PersonDetailResponse: {
             person: components["schemas"]["PersonListItem"];
+            guarantees: components["schemas"]["PersonGuarantees"];
             /** Guarantors */
             guarantors: components["schemas"]["PersonGuarantorRef"][];
             /** By Year */
@@ -712,6 +776,24 @@ export interface components {
             upcoming: components["schemas"]["PersonInstallmentRef"][];
             /** Overdue */
             overdue: components["schemas"]["PersonInstallmentRef"][];
+        };
+        /**
+         * PersonGuarantees
+         * @description Exposure as a per-loan guarantor.
+         */
+        PersonGuarantees: {
+            /** Loan Count */
+            loan_count: number;
+            /** Active Count */
+            active_count: number;
+            /** Total */
+            total: string;
+            /** Remaining */
+            remaining: string;
+            /** Overdue */
+            overdue: string;
+            /** Loans */
+            loans: components["schemas"]["GuaranteedLoan"][];
         };
         /** PersonGuarantorRef */
         PersonGuarantorRef: {
@@ -775,6 +857,12 @@ export interface components {
             outstanding_debt: string;
             /** Net Capital */
             net_capital: string;
+            /**
+             * Overdue Debt
+             * @default 0
+             */
+            overdue_debt: string;
+            guarantor?: components["schemas"]["PersonRef"] | null;
         };
         /**
          * PersonRef
@@ -964,6 +1052,12 @@ export interface operations {
         parameters: {
             query?: {
                 min_days_overdue?: number;
+                /** @description Loan year */
+                year?: number | null;
+                /** @description Jalali YYYY-MM-DD */
+                due_from?: string | null;
+                /** @description Jalali YYYY-MM-DD */
+                due_to?: string | null;
                 page?: number;
                 page_size?: number;
             };
@@ -1001,6 +1095,10 @@ export interface operations {
                 verified_only?: boolean;
                 has_debt?: boolean;
                 has_receivable?: boolean;
+                /** @description Member guarantor (main slot) */
+                guarantor_id?: number | null;
+                sort?: string | null;
+                sort_dir?: string;
                 page?: number;
                 page_size?: number;
             };
@@ -1026,6 +1124,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    guarantors_api_persons_guarantors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuarantorOption"][];
                 };
             };
         };

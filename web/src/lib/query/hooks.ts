@@ -29,6 +29,14 @@ export function usePersons(params: Parameters<typeof api.persons>[0] = {}) {
   });
 }
 
+export function useGuarantorOptions() {
+  return useQuery({
+    queryKey: ["persons", "guarantor-options"],
+    queryFn: () => api.guarantorOptions(),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function usePerson(id: number | null | undefined) {
   return useQuery({
     queryKey: ["persons", id],
