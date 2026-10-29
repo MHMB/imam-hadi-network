@@ -81,11 +81,23 @@ export function PaymentDialog({
   useEffect(() => {
     setPreview(null);
     if (mode !== "schedule" || !(Number(amount) > 0)) return;
+    let current = true; // ignore a late answer for an amount already changed
     const h = setTimeout(() => {
-      api.paymentPreview(loanId, amount).then(setPreview, () => setPreview(null));
+      api.paymentPreview(loanId, amount).then(
+        (p) => current && setPreview(p),
+        () => current && setPreview(null),
+      );
     }, 300);
-    return () => clearTimeout(h);
+    return () => {
+      current = false;
+      clearTimeout(h);
+    };
   }, [mode, amount, loanId]);
+
+  // A credit confirmation is for one exact amount and split: any change asks again.
+  useEffect(() => {
+    setConfirmCredit(false);
+  }, [mode, amount, picked, manual]);
 
   const allocations =
     mode === "pick"

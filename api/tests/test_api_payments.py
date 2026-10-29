@@ -130,8 +130,21 @@ async def test_schedule_edit_protects_paid_money(seeded_client: AsyncClient) -> 
     lid = d["loan"]["id"]
     await seeded_client.post(f"/api/loans/{lid}/payments", json={"amount": "0.5", "paid": PAID_ON})
     d = (await seeded_client.get(f"/api/loans/{lid}")).json()
-    a = d["lenders"][0]
+    a, b = d["lenders"]
     paid_row = a["installments"][0]
+    b_part = {
+        "party_id": b["party_id"],
+        "installments": [
+            {
+                "id": x["id"],
+                "year": x["due_persian_year"],
+                "month": x["due_persian_month"],
+                "day": x["due_day_of_month"],
+                "amount": x["amount"],
+            }
+            for x in b["installments"]
+        ],
+    }
 
     # merge lender A's two unpaid months into one at آذر — allowed
     edit = {
@@ -142,7 +155,8 @@ async def test_schedule_edit_protects_paid_money(seeded_client: AsyncClient) -> 
                     {"id": paid_row["id"], "year": 1405, "month": 7, "day": 1, "amount": "1"},
                     {"year": 1405, "month": 9, "day": 15, "amount": "2"},
                 ],
-            }
+            },
+            b_part,
         ]
     }
     r = await seeded_client.put(f"/api/loans/{lid}/schedule", json=edit)
@@ -194,4 +208,155 @@ async def test_payment_on_imported_loan_blocks_reimport_of_its_year(
     engine = create_async_engine(str(settings.database_url))
     async with async_sessionmaker(engine)() as s:
         assert await years_with_app_data(s, [1404, 1405]) == [loan["persian_year"]]
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_schedule_edit_rejects_duplicates_and_missing_lenders(
+    seeded_client: AsyncClient,
+) -> None:
+    d = await _loan(seeded_client)
+    lid = d["loan"]["id"]
+    a, b = d["lenders"]
+    row = lambda i: {  # noqa: E731
+        "id": i["id"],
+        "year": i["due_persian_year"],
+        "month": i["due_persian_month"],
+        "day": i["due_day_of_month"],
+        "amount": i["amount"],
+    }
+    a_rows = [row(i) for i in a["installments"]]
+    b_rows = [row(i) for i in b["installments"]]
+    url = f"/api/loans/{lid}/schedule"
+
+    only_a = {"lenders": [{"party_id": a["party_id"], "installments": a_rows}]}
+    assert (await seeded_client.put(url, json=only_a)).status_code == 422
+
+    twice_a = {
+        "lenders": [
+            {"party_id": a["party_id"], "installments": a_rows},
+            {"party_id": a["party_id"], "installments": a_rows},
+            {"party_id": b["party_id"], "installments": b_rows},
+        ]
+    }
+    assert (await seeded_client.put(url, json=twice_a)).status_code == 422
+
+    same_id = dict(a_rows[0], amount="2")
+    dup_rows = {
+        "lenders": [
+            {"party_id": a["party_id"], "installments": [same_id, dict(same_id, amount="1")]},
+            {"party_id": b["party_id"], "installments": b_rows},
+        ]
+    }
+    assert (await seeded_client.put(url, json=dup_rows)).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_completing_by_edit_keeps_paid_date_and_voided_history(
+    seeded_client: AsyncClient,
+) -> None:
+    d = await _loan(seeded_client)
+    lid = d["loan"]["id"]
+    await seeded_client.post(f"/api/loans/{lid}/payments", json={"amount": "0.5", "paid": PAID_ON})
+    d = (await seeded_client.get(f"/api/loans/{lid}")).json()
+    a, b = d["lenders"]
+    first = a["installments"][0]
+    rest = a["installments"][1:]
+    # shrink the partly paid installment to exactly what was paid -> becomes paid
+    rows = [
+        {"id": first["id"], "year": 1405, "month": 7, "day": 1, "amount": "0.5"},
+        *[
+            {
+                "id": i["id"],
+                "year": i["due_persian_year"],
+                "month": i["due_persian_month"],
+                "day": i["due_day_of_month"],
+                "amount": i["amount"],
+            }
+            for i in rest
+        ],
+        {"year": 1405, "month": 10, "day": 1, "amount": "0.5"},
+    ]
+    b_rows = [
+        {
+            "id": i["id"],
+            "year": i["due_persian_year"],
+            "month": i["due_persian_month"],
+            "day": i["due_day_of_month"],
+            "amount": i["amount"],
+        }
+        for i in b["installments"]
+    ]
+    r = await seeded_client.put(
+        f"/api/loans/{lid}/schedule",
+        json={
+            "lenders": [
+                {"party_id": a["party_id"], "installments": rows},
+                {"party_id": b["party_id"], "installments": b_rows},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["lenders"][0]["installments"][0]["status"] == "paid"
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.config import settings
+    from app.models import Installment
+
+    engine = create_async_engine(str(settings.database_url))
+    async with async_sessionmaker(engine)() as s:
+        inst = await s.get(Installment, first["id"])
+        assert inst is not None
+        assert (inst.paid_persian_year, inst.paid_persian_month, inst.paid_persian_day) == (
+            1405,
+            8,
+            7,
+        )
+    await engine.dispose()
+
+    # void the payment; the installment still has history, so it can't be dropped
+    pay_id = (await seeded_client.get(f"/api/loans/{lid}/payments")).json()[0]["id"]
+    await seeded_client.post(f"/api/payments/{pay_id}/void")
+    d = (await seeded_client.get(f"/api/loans/{lid}")).json()
+    a, b = d["lenders"]
+    keep = [i for i in a["installments"] if i["id"] != first["id"]]
+    rows = [
+        {
+            "id": i["id"],
+            "year": i["due_persian_year"],
+            "month": i["due_persian_month"],
+            "day": i["due_day_of_month"],
+            "amount": i["amount"],
+        }
+        for i in keep
+    ] + [{"year": 1405, "month": 11, "day": 1, "amount": "0.5"}]
+    r = await seeded_client.put(
+        f"/api/loans/{lid}/schedule",
+        json={
+            "lenders": [
+                {"party_id": a["party_id"], "installments": rows},
+                {"party_id": b["party_id"], "installments": b_rows},
+            ]
+        },
+    )
+    assert r.status_code == 422
+    assert (await seeded_client.get(f"/api/loans/{lid}/payments")).json()[0]["allocations"]
+
+
+@pytest.mark.asyncio
+async def test_editing_an_imported_loan_blocks_reimport_of_its_year(
+    seeded_client: AsyncClient,
+) -> None:
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from app.config import settings
+    from app.importer.writer import years_with_app_data
+
+    loan = (await seeded_client.get("/api/loans?page_size=1")).json()["items"][0]
+    r = await seeded_client.patch(f"/api/loans/{loan['id']}", json={"note_flagged": True})
+    assert r.status_code == 200
+    engine = create_async_engine(str(settings.database_url))
+    async with async_sessionmaker(engine)() as s:
+        assert loan["persian_year"] in await years_with_app_data(s, [1404, 1405])
     await engine.dispose()

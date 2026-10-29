@@ -29,6 +29,7 @@ from app.models.enums import InstallmentStatus, LoanPartyRole
 from app.schemas.payment import (
     AllocationIn,
     AllocationOut,
+    LenderScheduleEdit,
     PaymentCreate,
     PaymentOut,
     PaymentPreview,
@@ -65,7 +66,7 @@ async def _installments(session: AsyncSession, loan_id: int, *, lock: bool) -> l
         )
     )
     if lock:
-        stmt = stmt.with_for_update(of=Installment)
+        stmt = stmt.with_for_update(of=Installment).execution_options(populate_existing=True)
     rows = (await session.execute(stmt)).all()
     return [_Open(inst=i, lender_name=name, order=order) for i, name, order in rows]
 
@@ -162,7 +163,9 @@ async def record_payment(
             .order_by(LoanParty.display_order)
             .limit(1)
         )
-    ).scalar_one()
+    ).scalar_one_or_none()
+    if payer is None:
+        raise FieldError("loan_id", "این قرض قرض‌گیرنده ندارد؛ اول قرض‌گیرنده را ثبت کنید.")
     payment = Payment(
         loan_id=loan_id,
         payer_id=payer,
@@ -234,6 +237,7 @@ async def void_payment(session: AsyncSession, user: AppUser, payment_id: int) ->
                 select(Installment)
                 .where(Installment.id.in_([a.installment_id for a in allocs]))
                 .with_for_update()
+                .execution_options(populate_existing=True)
             )
         ).scalars()
     }
@@ -296,6 +300,79 @@ async def list_payments(session: AsyncSession, loan_id: int) -> list[PaymentOut]
     ]
 
 
+async def _last_paid_on(session: AsyncSession, installment_id: int) -> tuple[int, int, int] | None:
+    """Date of the latest live payment that put money on this installment."""
+    row = (
+        await session.execute(
+            select(Payment.paid_persian_year, Payment.paid_persian_month, Payment.paid_persian_day)
+            .join(PaymentAllocation, PaymentAllocation.payment_id == Payment.id)
+            .where(PaymentAllocation.installment_id == installment_id, Payment.voided_at.is_(None))
+            .order_by(
+                Payment.paid_persian_year.desc(),
+                Payment.paid_persian_month.desc(),
+                Payment.paid_persian_day.desc(),
+            )
+            .limit(1)
+        )
+    ).one_or_none()
+    return (row[0], row[1], row[2]) if row else None
+
+
+async def _edit_lender_rows(
+    session: AsyncSession,
+    field: str,
+    party: LoanParty,
+    ln: LenderScheduleEdit,
+    existing: dict[int, Installment],
+    allocated_ids: set[int],
+) -> None:
+    """Apply one lender's edited rows: update kept ones, add new, delete dropped."""
+    ids = [r.id for r in ln.installments if r.id is not None]
+    if len(ids) != len(set(ids)):
+        raise FieldError(field, "یک قسط دو بار آمده است.")
+    total = sum((r.amount for r in ln.installments), Decimal(0))
+    if total != party.amount:
+        raise FieldError(
+            field, f"جمع اقساط ({total}) با مبلغ این قرض‌دهنده ({party.amount}) برابر نیست."
+        )
+    for r in ln.installments:
+        if not is_valid(r.year, r.month, r.day):
+            raise FieldError(field, f"تاریخ {r.year}/{r.month}/{r.day} معتبر نیست.")
+        if r.id is None:
+            session.add(
+                Installment(
+                    loan_party_id=party.id,
+                    due_persian_year=r.year,
+                    due_persian_month=r.month,
+                    due_day_of_month=r.day,
+                    amount=r.amount,
+                    status=InstallmentStatus.unpaid,
+                )
+            )
+            continue
+        inst = existing.get(r.id)
+        if inst is None or inst.loan_party_id != party.id:
+            raise FieldError(field, "قسط نامعتبر است.")
+        if r.amount < inst.amount_paid:
+            raise FieldError(
+                field, f"قسطی که {inst.amount_paid} از آن پرداخت شده نمی‌تواند کمتر از آن شود."
+            )
+        inst.due_persian_year, inst.due_persian_month, inst.due_day_of_month = (
+            r.year,
+            r.month,
+            r.day,
+        )
+        inst.amount = r.amount
+        _apply(inst, Decimal(0), await _last_paid_on(session, inst.id))
+    kept = set(ids)
+    for inst in [i for i in existing.values() if i.loan_party_id == party.id and i.id not in kept]:
+        if inst.id in allocated_ids:
+            raise FieldError(
+                field, "قسطی که سابقه پرداخت دارد (حتی برگردانده‌شده) را نمی‌توان حذف کرد."
+            )
+        await session.delete(inst)
+
+
 async def edit_schedule(
     session: AsyncSession, user: AppUser, loan_id: int, body: ScheduleEdit
 ) -> Loan:
@@ -307,6 +384,9 @@ async def edit_schedule(
     change or disappear, and new ones can be added.
     """
     loan = await _loan(session, loan_id)
+    # Lock (and reload) the installments before reading anything else, so a
+    # payment committing meanwhile can't leave us validating stale amount_paid.
+    existing = {o.inst.id: o.inst for o in await _installments(session, loan_id, lock=True)}
     before = await loan_state(session, loan)
     parties = {
         p.id: p
@@ -318,58 +398,22 @@ async def edit_schedule(
             )
         ).scalars()
     }
-    existing = {o.inst.id: o.inst for o in await _installments(session, loan_id, lock=True)}
-    for idx, ln in enumerate(body.lenders):
-        party = parties.get(ln.party_id)
-        if party is None:
-            raise FieldError(f"lenders.{idx}", "این قرض‌دهنده متعلق به این قرض نیست.")
-        total = sum((r.amount for r in ln.installments), Decimal(0))
-        if total != party.amount:
-            raise FieldError(
-                f"lenders.{idx}",
-                f"جمع اقساط ({total}) با مبلغ این قرض‌دهنده ({party.amount}) برابر نیست.",
+    sent = [ln.party_id for ln in body.lenders]
+    if sorted(sent) != sorted(parties):
+        raise FieldError("lenders", "جدول باید برای هر قرض‌دهنده دقیقاً یک بار فرستاده شود.")
+    allocated_ids = set(
+        (
+            await session.execute(
+                select(PaymentAllocation.installment_id).where(
+                    PaymentAllocation.installment_id.in_(existing)
+                )
             )
-        kept: set[int] = set()
-        for r in ln.installments:
-            if not is_valid(r.year, r.month, r.day):
-                raise FieldError(f"lenders.{idx}", f"تاریخ {r.year}/{r.month}/{r.day} معتبر نیست.")
-            if r.id is not None:
-                inst = existing.get(r.id)
-                if inst is None or inst.loan_party_id != party.id:
-                    raise FieldError(f"lenders.{idx}", "قسط نامعتبر است.")
-                if r.amount < inst.amount_paid:
-                    raise FieldError(
-                        f"lenders.{idx}",
-                        f"قسطی که {inst.amount_paid} از آن پرداخت شده نمی‌تواند کمتر از آن شود.",
-                    )
-                inst.due_persian_year, inst.due_persian_month, inst.due_day_of_month = (
-                    r.year,
-                    r.month,
-                    r.day,
-                )
-                inst.amount = r.amount
-                _apply(inst, Decimal(0), None)  # status follows the new amount
-                kept.add(inst.id)
-            else:
-                session.add(
-                    Installment(
-                        loan_party_id=party.id,
-                        due_persian_year=r.year,
-                        due_persian_month=r.month,
-                        due_day_of_month=r.day,
-                        amount=r.amount,
-                        status=InstallmentStatus.unpaid,
-                    )
-                )
-        for inst in [i for i in existing.values() if i.loan_party_id == party.id]:
-            if inst.id in kept:
-                continue
-            if inst.amount_paid > 0:
-                raise FieldError(
-                    f"lenders.{idx}",
-                    "قسطی که پرداخت دارد را نمی‌توان حذف کرد؛ اول پرداخت را برگردانید.",
-                )
-            await session.delete(inst)
+        ).scalars()
+    )
+    for idx, ln in enumerate(body.lenders):
+        await _edit_lender_rows(
+            session, f"lenders.{idx}", parties[ln.party_id], ln, existing, allocated_ids
+        )
     await session.flush()
     await record(
         session,

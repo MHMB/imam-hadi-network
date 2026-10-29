@@ -21,6 +21,8 @@ from app.config import settings
 from app.db import SessionDep
 from app.models import AppUser
 
+_MAX_USERNAME = 64  # app_user.username width
+
 
 def username_from(request: Request) -> str:
     header = request.headers.get("authorization", "")
@@ -30,8 +32,9 @@ def username_from(request: Request) -> str:
             user, _, _ = base64.b64decode(token).decode("utf-8").partition(":")
         except (binascii.Error, UnicodeDecodeError):
             user = ""
-        if user:
-            return user[:64]
+        # Printable, no control characters, within the column width — else ignore.
+        if user and user.isprintable() and len(user) <= _MAX_USERNAME:
+            return user
     return settings.dev_user
 
 

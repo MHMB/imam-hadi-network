@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.importer.models import ParsedInstallment, ParsedLoan, ParsedPerson, ParseResult
 from app.importer.names import canonical_name, placeholder_phone, resolve_key
 from app.models import (
+    AuditLog,
     DataIssue,
     Import,
     Installment,
@@ -77,7 +78,7 @@ class AppDataInYears(Exception):
 
 
 async def years_with_app_data(session: AsyncSession, years: list[int]) -> list[int]:
-    """Years among ``years`` holding loans created in the app or payments recorded in it."""
+    """Years among ``years`` holding loans created, paid or edited in the app."""
     if not years:
         return []
     app_loans = select(Loan.persian_year).where(
@@ -88,7 +89,12 @@ async def years_with_app_data(session: AsyncSession, years: list[int]) -> list[i
         .join(Payment, Payment.loan_id == Loan.id)
         .where(Loan.persian_year.in_(years))
     )
-    rows = await session.execute(union(app_loans, paid_in_app))
+    edited_in_app = (
+        select(Loan.persian_year)
+        .join(AuditLog, (AuditLog.entity == "loan") & (AuditLog.entity_id == Loan.id))
+        .where(Loan.persian_year.in_(years))
+    )
+    rows = await session.execute(union(app_loans, paid_in_app, edited_in_app))
     return sorted(set(rows.scalars().all()))
 
 
