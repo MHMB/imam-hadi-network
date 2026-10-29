@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useMemo } from "react";
 
-import { Badge } from "@/components/ui/Badge";
+import { LoanStatusBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { FilterBar, FilterNumber, FilterSearch, FilterSelect } from "@/components/ui/filters";
 import { NoteBadge } from "@/components/ui/NoteBadge";
@@ -151,9 +151,10 @@ function LoansInner() {
                       {messages.loanNumber} {toPersianDigits(ln.loan_number)}
                       {ln.has_note && <NoteBadge flagged={ln.note_flagged} />}
                     </span>
-                    <Badge tone={ln.status}>
-                      {ln.status === "active" ? messages.active : messages.settled}
-                    </Badge>
+                    <LoanStatusBadge
+                      settled={ln.status === "settled"}
+                      overdue={ln.overdue ?? false}
+                    />
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
                     {toPersianDigits(ln.persian_year)} · {ln.topic_name} · {messages.borrower}:{" "}
@@ -202,7 +203,7 @@ function LoansInner() {
                     dir={sortDir}
                     onSort={onSort}
                   />
-                  <th className="px-4 py-2 text-start font-medium">{messages.active}</th>
+                  <th className="px-4 py-2 text-start font-medium">{messages.statusLabel}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -231,9 +232,10 @@ function LoansInner() {
                     <td className="px-4 py-3">{fmtMoneyMT(Number(ln.total))}</td>
                     <td className="px-4 py-3 font-medium">{fmtMoneyMT(Number(ln.remaining))}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={ln.status}>
-                        {ln.status === "active" ? messages.active : messages.settled}
-                      </Badge>
+                      <LoanStatusBadge
+                        settled={ln.status === "settled"}
+                        overdue={ln.overdue ?? false}
+                      />
                     </td>
                   </tr>
                 ))}

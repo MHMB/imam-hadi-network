@@ -14,7 +14,7 @@ import { PaymentDialog } from "@/components/loan/PaymentDialog";
 import { AuditHistory } from "@/components/ui/AuditHistory";
 import { Button } from "@/components/ui/form";
 import { PlatformIcon } from "@/components/ui/PlatformIcon";
-import { Badge } from "@/components/ui/Badge";
+import { LoanStatusBadge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { NoteBadge } from "@/components/ui/NoteBadge";
 import { ErrorState, Loading } from "@/components/ui/States";
@@ -93,6 +93,7 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
           d: i.due_day_of_month,
           amount: Number(i.amount),
           paid: i.status === "paid",
+          paidAmount: Number(i.amount_paid),
         })),
       })),
     [data],
@@ -133,9 +134,7 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-          <Badge tone={totals.settled ? "settled" : "active"}>
-            {totals.settled ? messages.settled : messages.active}
-          </Badge>
+          <LoanStatusBadge settled={totals.settled} overdue={schedule.overdue.length > 0} />
           <span>
             {messages.year}: {toPersianDigits(persianYear)}
           </span>
@@ -186,11 +185,23 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
               </Link>
             </li>
           )}
-          {liaisonLabel && (
-            <li className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-700">
-              <span>{messages.liaison}</span>
-              <strong className="font-semibold">{liaisonLabel}</strong>
+          {fields.liaison_person ? (
+            <li>
+              <Link
+                href={`/persons/${fields.liaison_person.id}`}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <span>{messages.liaison}</span>
+                <strong className="font-semibold">{fields.liaison_person.full_name}</strong>
+              </Link>
             </li>
+          ) : (
+            liaisonLabel && (
+              <li className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-700">
+                <span>{messages.liaison}</span>
+                <strong className="font-semibold">{liaisonLabel}</strong>
+              </li>
+            )
           )}
         </ul>
         {description && (

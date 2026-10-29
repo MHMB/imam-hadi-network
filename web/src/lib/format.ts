@@ -11,12 +11,14 @@ export function toPersianDigits(input: string | number): string {
   return String(input).replace(/[0-9]/g, (d) => PERSIAN_DIGITS[Number(d)]);
 }
 
+/** `1.833` → `۱٫۸۳۳` (up to 3 decimals, Persian separators). */
+export function fmtNumber(value: number): string {
+  return new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 3 }).format(value);
+}
+
 /** "5.5 million toman" → `۵٫۵ میلیون تومان`. */
 export function fmtMoneyMT(amountMillionToman: number): string {
-  const fmt = new Intl.NumberFormat("fa-IR", {
-    maximumFractionDigits: 3,
-  });
-  return `${fmt.format(amountMillionToman)} میلیون تومان`;
+  return `${fmtNumber(amountMillionToman)} میلیون تومان`;
 }
 
 /** Raw toman, with thousands separator — used in tooltips. */

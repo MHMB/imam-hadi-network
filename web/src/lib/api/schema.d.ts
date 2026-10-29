@@ -479,6 +479,15 @@ export interface components {
             after: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Names
+             * @default {}
+             */
+            names: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
         };
         /** Body_imports_upload_api_imports_post */
         Body_imports_upload_api_imports_post: {
@@ -671,6 +680,11 @@ export interface components {
             amount: string;
             /** Amount Paid */
             amount_paid: string;
+            /**
+             * Has History
+             * @default false
+             */
+            has_history: boolean;
             status: components["schemas"]["InstallmentStatus"];
         };
         /**
@@ -920,6 +934,11 @@ export interface components {
              */
             status: "active" | "settled";
             /**
+             * Overdue
+             * @default false
+             */
+            overdue: boolean;
+            /**
              * Has Note
              * @default false
              */
@@ -1028,7 +1047,7 @@ export interface components {
             has_note: boolean;
             /** Topic Name */
             topic_name: string;
-            borrower: components["schemas"]["PersonRef"];
+            borrower: components["schemas"]["PersonRef"] | null;
             lender: components["schemas"]["PersonRef"];
             guarantor: components["schemas"]["PersonRef"] | null;
             /** Due Persian Year */

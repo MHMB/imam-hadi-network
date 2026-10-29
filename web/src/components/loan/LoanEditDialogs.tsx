@@ -138,6 +138,7 @@ export function EditScheduleDialog({
         day: i.due_day_of_month,
         amount: String(Number(i.amount)),
         paid: String(Number(i.amount_paid)),
+        locked: i.has_history,
       })),
     })),
   );

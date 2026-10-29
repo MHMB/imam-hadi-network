@@ -119,14 +119,16 @@ async def list_overdue(
         .join(Loan, Loan.id == lender_lp.loan_id)
         .join(LoanTopic, LoanTopic.id == Loan.topic_id)
         .join(lender_person, lender_person.id == lender_lp.person_id)
+        # Outer: a few Excel loans have no borrower row; they are still late.
         .join(
             borrower_lp,
             and_(
                 borrower_lp.loan_id == Loan.id,
                 borrower_lp.role == LoanPartyRole.borrower,
             ),
+            isouter=True,
         )
-        .join(borrower_person, borrower_person.id == borrower_lp.person_id)
+        .join(borrower_person, borrower_person.id == borrower_lp.person_id, isouter=True)
         .join(guarantor_person, guarantor_person.id == Loan.guarantor_id, isouter=True)
         .where(
             lender_lp.role == LoanPartyRole.lender,
@@ -163,7 +165,11 @@ async def list_overdue(
                 persian_year=r.persian_year,
                 has_note=bool((r.description or "").strip()),
                 topic_name=r.topic_name,
-                borrower=PersonRef(id=r.b_id, full_name=r.b_name, phone=r.b_phone),
+                borrower=(
+                    PersonRef(id=r.b_id, full_name=r.b_name, phone=r.b_phone)
+                    if r.b_id is not None
+                    else None
+                ),
                 lender=PersonRef(id=r.l_id, full_name=r.l_name, phone=r.l_phone),
                 guarantor=(
                     PersonRef(id=r.g_id, full_name=r.g_name, phone=r.g_phone)

@@ -17,6 +17,7 @@ from app.models import (
     LoanParty,
     LoanTopic,
     Payment,
+    PaymentAllocation,
     Person,
 )
 from app.models.enums import InstallmentStatus, LoanPartyRole
@@ -80,6 +81,30 @@ def _borrower_name_subq() -> Any:
         .group_by(LoanParty.loan_id)
         .subquery()
     )
+
+
+async def _overdue_loan_ids(session: AsyncSession, loan_ids: list[int]) -> set[int]:
+    """Which of these loans have an unpaid lender installment due before today."""
+    if not loan_ids:
+        return set()
+    t = jdatetime.date.fromgregorian(date=date.today())
+    rows = await session.execute(
+        select(LoanParty.loan_id)
+        .join(Installment, Installment.loan_party_id == LoanParty.id)
+        .where(
+            LoanParty.loan_id.in_(loan_ids),
+            LoanParty.role == LoanPartyRole.lender,
+            Installment.status == InstallmentStatus.unpaid,
+            tuple_(
+                Installment.due_persian_year,
+                Installment.due_persian_month,
+                Installment.due_day_of_month,
+            )
+            < tuple_(literal(t.year), literal(t.month), literal(t.day)),
+        )
+        .distinct()
+    )
+    return set(rows.scalars())
 
 
 # --------------------------------------------------------------------- list
@@ -212,6 +237,7 @@ async def list_loans(
     offset, limit = page_bounds(page, page_size)
     page_q = base.order_by(*order_by).offset(offset).limit(limit)
     rows = (await session.execute(page_q)).all()
+    late = await _overdue_loan_ids(session, [row.id for row in rows])
 
     items = [
         LoanListItem(
@@ -226,6 +252,7 @@ async def list_loans(
             paid=Decimal(row.paid),
             remaining=Decimal(row.remaining),
             status="settled" if Decimal(row.remaining) == 0 else "active",
+            overdue=row.id in late,
             has_note=bool((row.description or "").strip()),
             note_flagged=row.note_flagged,
             source_platform=row.source_platform,
@@ -325,6 +352,15 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
                 )
             )
         ).all()
+        touched = set(
+            (
+                await session.execute(
+                    select(PaymentAllocation.installment_id)
+                    .where(PaymentAllocation.installment_id.in_([r.id for r in inst_rows]))
+                    .distinct()
+                )
+            ).scalars()
+        )
         paid_by_party: dict[int, Decimal] = defaultdict(lambda: Decimal(0))
         remaining_by_party: dict[int, Decimal] = defaultdict(lambda: Decimal(0))
         for irow in inst_rows:
@@ -337,6 +373,7 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
                     due_day_of_month=irow.due_day_of_month,
                     amount=Decimal(irow.amount),
                     amount_paid=Decimal(irow.amount_paid),
+                    has_history=irow.id in touched,
                     status=inst_status,
                 )
             )

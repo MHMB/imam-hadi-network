@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Dialog, Field, FormError, MoneyInput, TextInput } from "@/components/ui/form";
 import { JalaliDatePicker, formatJalaliValue, parseJalali } from "@/components/ui/JalaliDatePicker";
 import { ApiError, type LoanDetailResponse, type PaymentPreview, api } from "@/lib/api/client";
-import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
+import { fmtMoneyMT, fmtNumber, toPersianDigits } from "@/lib/format";
 import { JALALI_MONTHS, messages } from "@/lib/i18n";
 import { todayJalali } from "@/lib/jalali";
 import { useWrite } from "@/lib/query/hooks";
@@ -73,6 +73,7 @@ export function PaymentDialog({
   const [manual, setManual] = useState<Record<number, string>>({});
   const [confirmCredit, setConfirmCredit] = useState(false);
   const [preview, setPreview] = useState<PaymentPreview | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
 
   // Ticking installments decides the amount.
   const pickedSum = open.filter((o) => picked.has(o.id)).reduce((a, o) => a + o.remaining, 0);
@@ -80,12 +81,13 @@ export function PaymentDialog({
 
   useEffect(() => {
     setPreview(null);
+    setPreviewFailed(false);
     if (mode !== "schedule" || !(Number(amount) > 0)) return;
     let current = true; // ignore a late answer for an amount already changed
     const h = setTimeout(() => {
       api.paymentPreview(loanId, amount).then(
         (p) => current && setPreview(p),
-        () => current && setPreview(null),
+        () => current && setPreviewFailed(true),
       );
     }, 300);
     return () => {
@@ -113,6 +115,14 @@ export function PaymentDialog({
     allocations?.reduce((a, x) => a + milli(x.amount), 0) ??
     (preview ? milli(effectiveAmount) - milli(preview.credit) : 0);
   const creditMilli = milli(effectiveAmount) - allocatedMilli;
+  // Until the server's split arrives the credit is unknown — never show a guess.
+  const previewing = mode === "schedule" && milli(amount) > 0 && preview === null && !previewFailed;
+  // Manual rows asking for more than the installment still owes.
+  const overRows = new Set(
+    mode === "manual"
+      ? open.filter((o) => milli(manual[o.id] ?? "0") > o.remaining).map((o) => o.id)
+      : [],
+  );
 
   const save = useWrite(() => {
     const d = parseJalali(paid)!;
@@ -128,6 +138,9 @@ export function PaymentDialog({
   const canSave =
     milli(effectiveAmount) > 0 &&
     parseJalali(paid) !== null &&
+    !previewing &&
+    !previewFailed &&
+    overRows.size === 0 &&
     (creditMilli <= 0 || confirmCredit) &&
     creditMilli >= 0 &&
     !save.isPending;
@@ -229,10 +242,23 @@ export function PaymentDialog({
                   <div className="w-36">
                     <MoneyInput
                       aria-label={`${messages.allocation} ${o.lender}`}
+                      aria-invalid={overRows.has(o.id) || undefined}
+                      aria-describedby={overRows.has(o.id) ? `over-${o.id}` : undefined}
                       value={manual[o.id] ?? ""}
                       onChange={(v) => setManual((s) => ({ ...s, [o.id]: v }))}
                     />
+                    {overRows.has(o.id) && (
+                      <p id={`over-${o.id}`} className="mt-1 text-xs text-overdue">
+                        {messages.overRemaining.replace("{amount}", fmtNumber(o.remaining / 1000))}
+                      </p>
+                    )}
                   </div>
+                )}
+                {mode === "schedule" && previewing && (
+                  <span
+                    aria-hidden
+                    className="h-5 w-24 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none"
+                  />
                 )}
                 {mode === "schedule" && scheduled && (
                   <span className="rounded-full bg-paid/10 px-2 py-0.5 text-xs font-semibold text-paid">
@@ -245,14 +271,22 @@ export function PaymentDialog({
         </ul>
       </section>
 
-      {creditMilli > 0 && (
+      {previewing && (
+        <p role="status" aria-live="polite" className="text-sm text-slate-600">
+          {messages.splitCalculating}
+        </p>
+      )}
+      {previewFailed && (
+        <p role="alert" className="text-sm text-overdue">
+          {messages.previewFailed}
+        </p>
+      )}
+      {!previewing && !previewFailed && creditMilli > 0 && (
         <div
           className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
           role="alert"
         >
-          <p>
-            {messages.creditWarning.replace("{amount}", toPersianDigits(fromMilli(creditMilli)))}
-          </p>
+          <p>{messages.creditWarning.replace("{amount}", fmtNumber(creditMilli / 1000))}</p>
           <label className="flex items-start gap-2">
             <input
               type="checkbox"
@@ -264,7 +298,7 @@ export function PaymentDialog({
           </label>
         </div>
       )}
-      {creditMilli < 0 && (
+      {!previewing && creditMilli < 0 && (
         <p className="text-sm text-overdue" role="alert">
           {err?.fields.allocations ?? messages.rowMismatch}
         </p>

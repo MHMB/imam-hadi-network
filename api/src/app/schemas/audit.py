@@ -17,6 +17,8 @@ class AuditEntry(BaseModel):
     entity_id: int
     before: dict[str, Any] | None
     after: dict[str, Any] | None
+    # Display names for id fields: {"topic_id": {"23": "خانه"}, "guarantor_id": {...}}
+    names: dict[str, dict[str, str]] = {}
 
 
 class MeResponse(BaseModel):

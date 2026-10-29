@@ -117,8 +117,8 @@ function OverdueInner() {
                   </Badge>
                 </div>
                 <div className="mt-1 text-xs text-slate-600">
-                  {messages.borrower}: {it.borrower.full_name} · {messages.lender}:{" "}
-                  {it.lender.full_name}
+                  {messages.borrower}: {it.borrower?.full_name ?? messages.noBorrower} ·{" "}
+                  {messages.lender}: {it.lender.full_name}
                 </div>
                 <div className="mt-1 text-xs text-slate-700">
                   {fmtJalaliDate(it.due_persian_year, it.due_persian_month, it.due_day_of_month)} ·{" "}
@@ -163,12 +163,16 @@ function OverdueInner() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/persons/${it.borrower.id}`}
-                        className="text-slate-700 hover:underline"
-                      >
-                        {it.borrower.full_name}
-                      </Link>
+                      {it.borrower ? (
+                        <Link
+                          href={`/persons/${it.borrower.id}`}
+                          className="text-slate-700 hover:underline"
+                        >
+                          {it.borrower.full_name}
+                        </Link>
+                      ) : (
+                        <Badge tone="warning">{messages.noBorrower}</Badge>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Link

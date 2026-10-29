@@ -27,6 +27,7 @@ class LoanListItem(BaseModel):
     paid: Decimal
     remaining: Decimal
     status: LoanStatus
+    overdue: bool = False  # an unpaid installment is past due
     has_note: bool = False  # loan carries a description the admin should read
     note_flagged: bool = False  # admin marked the note important
     source_platform: Platform | None = None  # where the request came in
@@ -39,6 +40,7 @@ class InstallmentRef(BaseModel):
     due_day_of_month: int
     amount: Decimal
     amount_paid: Decimal  # partial payments; remaining = amount - amount_paid
+    has_history: bool = False  # a payment (even a voided one) touched it
     status: InstallmentStatus
 
 

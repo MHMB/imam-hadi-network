@@ -14,6 +14,9 @@ import unicodedata
 from typing import Final
 
 from pydantic import BaseModel, Field
+from sqlalchemy import func
+from sqlalchemy.orm import InstrumentedAttribute
+from sqlalchemy.sql.elements import ColumnElement
 
 # --------------------------------------------------------------------- pagination
 
@@ -90,6 +93,19 @@ def normalize_persian_name(value: str | None) -> str:
     s = s.translate(_DROP_CHARS)
     s = _MULTI_WHITESPACE_RE.sub(" ", s)
     return s.strip().lower()
+
+
+# SQL twin of ``normalize_persian_name`` for a stored column: Postgres
+# ``translate`` maps each char of FROM to the same position in TO and drops
+# the ones past TO's end (the zero-width marks).
+_SQL_FOLD_FROM: Final = "يكى۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩\u200b\u200c\u200d\u200e\u200f\ufeff"
+_SQL_FOLD_TO: Final = "یکی01234567890123456789"
+
+
+def normalized_sql(column: InstrumentedAttribute[str]) -> ColumnElement[str]:
+    """``column`` folded like ``normalize_persian_name``."""
+    folded = func.translate(func.lower(column), _SQL_FOLD_FROM, _SQL_FOLD_TO)
+    return func.trim(func.regexp_replace(folded, r"\s+", " ", "g"))
 
 
 # --------------------------------------------------------------------- CSV params
