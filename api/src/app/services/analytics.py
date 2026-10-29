@@ -33,6 +33,7 @@ from app.schemas.analytics import (
     PersonAmountItem,
     TopicBreakdownItem,
 )
+from app.services.money import PAID, REMAINING
 
 PERSIAN_MONTH_NAMES = [
     "فروردین",
@@ -151,7 +152,7 @@ async def _installments_due_summary(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.paid, Installment.amount),
+                            (Installment.amount_paid > 0, PAID),
                             else_=0,
                         )
                     ),
@@ -160,7 +161,7 @@ async def _installments_due_summary(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                            (Installment.status == InstallmentStatus.unpaid, REMAINING),
                             else_=0,
                         )
                     ),
@@ -312,7 +313,7 @@ async def get_circulation(session: AsyncSession) -> CirculationResponse:
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.paid, Installment.amount),
+                            (Installment.amount_paid > 0, PAID),
                             else_=0,
                         )
                     ),
@@ -321,7 +322,7 @@ async def get_circulation(session: AsyncSession) -> CirculationResponse:
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                            (Installment.status == InstallmentStatus.unpaid, REMAINING),
                             else_=0,
                         )
                     ),

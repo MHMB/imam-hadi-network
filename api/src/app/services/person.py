@@ -41,6 +41,7 @@ from app.schemas.person import (
     PersonRef,
     PersonYearBreakdown,
 )
+from app.services.money import PAID, REMAINING, remaining_of
 from app.services.query import Page, normalize_persian_name, page_bounds
 
 
@@ -83,7 +84,7 @@ def _rollup_subq() -> Any:
     lender_outstanding_subq = (
         select(
             lender_lp.c.person_id.label("person_id"),
-            func.coalesce(func.sum(inst.c.amount), 0).label("outstanding_receivable"),
+            func.coalesce(func.sum(remaining_of(inst)), 0).label("outstanding_receivable"),
         )
         .select_from(lender_lp)
         .join(inst, inst.c.loan_party_id == lender_lp.c.id)
@@ -110,7 +111,7 @@ def _rollup_subq() -> Any:
     borrower_debt_subq = (
         select(
             borrower_lp.c.person_id.label("person_id"),
-            func.coalesce(func.sum(inst.c.amount), 0).label("outstanding_debt"),
+            func.coalesce(func.sum(remaining_of(inst)), 0).label("outstanding_debt"),
         )
         .select_from(borrower_lp)
         .join(lender_lp, lender_lp.c.loan_id == borrower_lp.c.loan_id)
@@ -129,7 +130,7 @@ def _rollup_subq() -> Any:
     borrower_overdue_subq = (
         select(
             borrower_lp.c.person_id.label("person_id"),
-            func.coalesce(func.sum(inst.c.amount), 0).label("overdue_debt"),
+            func.coalesce(func.sum(remaining_of(inst)), 0).label("overdue_debt"),
         )
         .select_from(borrower_lp)
         .join(lender_lp, lender_lp.c.loan_id == borrower_lp.c.loan_id)
@@ -355,10 +356,8 @@ async def _person_guarantees(session: AsyncSession, person_id: int) -> PersonGua
     money = (
         select(
             LoanParty.loan_id.label("loan_id"),
-            func.coalesce(func.sum(case((unpaid, Installment.amount), else_=0)), 0).label(
-                "remaining"
-            ),
-            func.coalesce(func.sum(case((late, Installment.amount), else_=0)), 0).label("overdue"),
+            func.coalesce(func.sum(case((unpaid, REMAINING), else_=0)), 0).label("remaining"),
+            func.coalesce(func.sum(case((late, REMAINING), else_=0)), 0).label("overdue"),
         )
         .join(Installment, Installment.loan_party_id == LoanParty.id)
         .join(Loan, Loan.id == LoanParty.loan_id)
@@ -480,7 +479,7 @@ async def _person_year_breakdown(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.paid, Installment.amount),
+                            (Installment.amount_paid > 0, PAID),
                             else_=0,
                         )
                     ),
@@ -489,7 +488,7 @@ async def _person_year_breakdown(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                            (Installment.status == InstallmentStatus.unpaid, REMAINING),
                             else_=0,
                         )
                     ),
@@ -542,7 +541,7 @@ async def _person_year_breakdown(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.paid, Installment.amount),
+                            (Installment.amount_paid > 0, PAID),
                             else_=0,
                         )
                     ),
@@ -551,7 +550,7 @@ async def _person_year_breakdown(
                 func.coalesce(
                     func.sum(
                         case(
-                            (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                            (Installment.status == InstallmentStatus.unpaid, REMAINING),
                             else_=0,
                         )
                     ),
@@ -628,7 +627,7 @@ async def _person_installments(
             Installment.due_persian_year.label("due_persian_year"),
             Installment.due_persian_month.label("due_persian_month"),
             Installment.due_day_of_month.label("due_day_of_month"),
-            Installment.amount.label("amount"),
+            REMAINING.label("amount"),
             Installment.status.label("status"),
             literal("lender").label("role"),
         )
@@ -649,7 +648,7 @@ async def _person_installments(
             Installment.due_persian_year.label("due_persian_year"),
             Installment.due_persian_month.label("due_persian_month"),
             Installment.due_day_of_month.label("due_day_of_month"),
-            Installment.amount.label("amount"),
+            REMAINING.label("amount"),
             Installment.status.label("status"),
             literal("borrower").label("role"),
         )

@@ -29,6 +29,7 @@ from app.schemas.loan import (
     TopicRef,
 )
 from app.schemas.person import PersonRef
+from app.services.money import PAID, REMAINING
 from app.services.query import Page, page_bounds
 
 
@@ -40,7 +41,7 @@ def _loan_paid_remaining_subq() -> Any:
             func.coalesce(
                 func.sum(
                     case(
-                        (Installment.status == InstallmentStatus.paid, Installment.amount),
+                        (Installment.amount_paid > 0, PAID),
                         else_=0,
                     )
                 ),
@@ -49,7 +50,7 @@ def _loan_paid_remaining_subq() -> Any:
             func.coalesce(
                 func.sum(
                     case(
-                        (Installment.status == InstallmentStatus.unpaid, Installment.amount),
+                        (Installment.status == InstallmentStatus.unpaid, REMAINING),
                         else_=0,
                     )
                 ),
@@ -302,11 +303,13 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
         inst_rows = (
             await session.execute(
                 select(
+                    Installment.id,
                     Installment.loan_party_id,
                     Installment.due_persian_year,
                     Installment.due_persian_month,
                     Installment.due_day_of_month,
                     Installment.amount,
+                    Installment.amount_paid,
                     Installment.status,
                 )
                 .where(Installment.loan_party_id.in_(lender_parties.keys()))
@@ -323,17 +326,19 @@ async def get_loan_detail(session: AsyncSession, loan_id: int) -> LoanDetailResp
             inst_status = InstallmentStatus(irow.status)
             lender_parties[irow.loan_party_id].installments.append(
                 InstallmentRef(
+                    id=irow.id,
                     due_persian_year=irow.due_persian_year,
                     due_persian_month=irow.due_persian_month,
                     due_day_of_month=irow.due_day_of_month,
                     amount=Decimal(irow.amount),
+                    amount_paid=Decimal(irow.amount_paid),
                     status=inst_status,
                 )
             )
-            if inst_status is InstallmentStatus.paid:
-                paid_by_party[irow.loan_party_id] += Decimal(irow.amount)
-            else:
-                remaining_by_party[irow.loan_party_id] += Decimal(irow.amount)
+            paid_by_party[irow.loan_party_id] += Decimal(irow.amount_paid)
+            remaining_by_party[irow.loan_party_id] += Decimal(irow.amount) - Decimal(
+                irow.amount_paid
+            )
         for pid, lp in lender_parties.items():
             lp.paid = paid_by_party[pid]
             lp.remaining = remaining_by_party[pid]

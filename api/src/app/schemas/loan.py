@@ -31,10 +31,12 @@ class LoanListItem(BaseModel):
 
 
 class InstallmentRef(BaseModel):
+    id: int
     due_persian_year: int
     due_persian_month: int
     due_day_of_month: int
     amount: Decimal
+    amount_paid: Decimal  # partial payments; remaining = amount - amount_paid
     status: InstallmentStatus
 
 

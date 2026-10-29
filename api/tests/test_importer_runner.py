@@ -11,19 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.config import settings
 from app.importer.runner import parse_workbook, run_import
 from app.models import Import, Installment, Loan, LoanParty, LoanTopic, Person
+from tests.db_tables import WIPE_TABLES as _WIPE_TABLES
 
 pytestmark = pytest.mark.integration
-
-
-_WIPE_TABLES = (
-    "data_issue",
-    "installment",
-    "loan_party",
-    "loan",
-    "import",
-    "person_guarantor",
-    "person",
-)
 
 
 @pytest.fixture

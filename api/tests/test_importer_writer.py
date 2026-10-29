@@ -29,22 +29,12 @@ from app.importer.validation import validate
 from app.importer.writer import sha256_of_file, write_parse_result
 from app.models import DataIssue, Import, Loan, LoanParty, Person
 from app.models.enums import LoanPartyRole
+from tests.db_tables import WIPE_TABLES as _WIPE_TABLES
 
 pytestmark = pytest.mark.integration
 
 
 # --------------------------------------------------------------------- helpers
-
-
-_WIPE_TABLES = (
-    "data_issue",
-    "installment",
-    "loan_party",
-    "loan",
-    "import",
-    "person_guarantor",
-    "person",
-)
 
 
 @pytest.fixture

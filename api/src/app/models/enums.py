@@ -78,3 +78,10 @@ class IssueCategory(StrEnum):
     orphan_row = "orphan_row"
     missing_day = "missing_day"
     missing_amount = "missing_amount"
+
+
+class LoanOrigin(StrEnum):
+    """Where a loan row came from."""
+
+    import_ = "import"
+    app = "app"

@@ -31,7 +31,7 @@ from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models import Base
-from app.models.enums import LoanPartyRole
+from app.models.enums import LoanOrigin, LoanPartyRole
 from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
@@ -63,11 +63,29 @@ class Loan(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    import_id: Mapped[int] = mapped_column(
+    import_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("import.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
+    """The Excel import that wrote this loan; NULL for loans created in the app."""
+
+    origin: Mapped[LoanOrigin] = mapped_column(
+        SqlEnum(
+            LoanOrigin,
+            native_enum=False,
+            length=16,
+            name="ck_loan_origin",
+            values_callable=lambda e: [m.value for m in e],
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=LoanOrigin.import_,
+        server_default=LoanOrigin.import_.value,
+    )
+    """``import`` = written by the Excel importer; ``app`` = created in the app.
+    The importer guard refuses / asks before deleting a year holding ``app`` loans."""
 
     # --- optional ---
     channel_number: Mapped[str | None] = mapped_column(String(32), default=None)
@@ -91,7 +109,7 @@ class Loan(Base, TimestampMixin):
         foreign_keys=[guarantor_id],
         init=False,
     )
-    import_: Mapped[Import] = relationship(
+    import_: Mapped[Import | None] = relationship(
         back_populates="loans",
         foreign_keys=[import_id],
         init=False,

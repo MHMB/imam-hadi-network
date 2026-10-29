@@ -15,19 +15,9 @@ from app.config import settings
 from app.importer.runner import run_import
 from app.main import app
 from app.services.overdue import _days_overdue
+from tests.db_tables import WIPE_TABLES as _WIPE_TABLES
 
 pytestmark = pytest.mark.integration
-
-
-_WIPE_TABLES = (
-    "data_issue",
-    "installment",
-    "loan_party",
-    "loan",
-    "import",
-    "person_guarantor",
-    "person",
-)
 
 
 @pytest.fixture

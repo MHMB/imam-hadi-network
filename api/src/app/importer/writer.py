@@ -44,7 +44,7 @@ from app.models import (
     Person,
     PersonGuarantor,
 )
-from app.models.enums import ImportStatus, LoanPartyRole
+from app.models.enums import ImportStatus, InstallmentStatus, LoanPartyRole
 
 
 def sha256_of_file(path: Path) -> str:
@@ -390,6 +390,10 @@ async def _insert_loans(
                         due_day_of_month=inst.due_day_of_month,
                         amount=inst.amount,
                         status=inst.status,
+                        # Green cell = fully paid; partial payments only come from the app.
+                        amount_paid=(
+                            inst.amount if inst.status is InstallmentStatus.paid else Decimal(0)
+                        ),
                     )
                 )
 
