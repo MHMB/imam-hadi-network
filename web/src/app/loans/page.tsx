@@ -2,32 +2,55 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { FilterBar, FilterNumber, FilterSearch, FilterSelect } from "@/components/ui/filters";
 import { Pagination } from "@/components/ui/Pagination";
+import { type SortDir, SortableTh } from "@/components/ui/SortableTh";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
 import { useKpi, useLoans } from "@/lib/query/hooks";
+import { useUrlParams } from "@/lib/url-params";
 
 type Status = "all" | "active" | "settled";
 type SortKey = "loan_number" | "year" | "total" | "remaining";
-type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
+const SORT_KEYS: readonly SortKey[] = ["loan_number", "year", "total", "remaining"];
+// Newest loans first unless the viewer picks another sort.
+const DEFAULT_SORT: SortKey = "loan_number";
+const DEFAULT_DIR: SortDir = "desc";
 
 export default function LoansPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <LoansInner />
+    </Suspense>
+  );
+}
+
+function LoansInner() {
   const router = useRouter();
-  const [year, setYear] = useState<number | "">("");
-  const [status, setStatus] = useState<Status>("all");
-  const [q, setQ] = useState("");
-  const [dueWithin, setDueWithin] = useState<number | "">("");
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [page, setPage] = useState(1);
+  const url = useUrlParams();
+  const year = url.num("year");
+  const status = (url.str("status") || "all") as Status;
+  const q = url.str("q");
+  const dueWithin = url.num("due");
+  const sortParam = url.str("sort") as SortKey;
+  const sortKey: SortKey = SORT_KEYS.includes(sortParam) ? sortParam : DEFAULT_SORT;
+  const sortDir: SortDir =
+    url.str("dir") === "asc" || url.str("dir") === "desc"
+      ? (url.str("dir") as SortDir)
+      : sortParam
+        ? "asc"
+        : DEFAULT_DIR;
+  const page = url.num("page") || 1;
+  // Any filter change resets to page 1.
+  const setFilter = (patch: Record<string, string | number | null>) =>
+    url.set({ ...patch, page: null });
 
   const kpi = useKpi();
   const years = useMemo(
@@ -40,20 +63,22 @@ export default function LoansPage() {
     status: status === "all" ? undefined : status,
     q: q || undefined,
     due_within_days: dueWithin === "" ? undefined : dueWithin,
-    sort: sortKey ?? undefined,
-    sort_dir: sortKey ? sortDir : undefined,
+    sort: sortKey,
+    sort_dir: sortDir,
     page,
     page_size: PAGE_SIZE,
   });
 
   const onSort = (key: SortKey) => {
-    setPage(1);
-    if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "total" || key === "remaining" ? "desc" : "asc");
-    }
+    const dir: SortDir =
+      key === sortKey
+        ? sortDir === "asc"
+          ? "desc"
+          : "asc"
+        : key === "total" || key === "remaining" || key === "loan_number"
+          ? "desc"
+          : "asc";
+    setFilter({ sort: key, dir });
   };
 
   return (
@@ -66,20 +91,14 @@ export default function LoansPage() {
       <FilterBar>
         <FilterSearch
           value={q}
-          onChange={(v) => {
-            setPage(1);
-            setQ(v);
-          }}
+          onChange={(v) => setFilter({ q: v })}
           placeholder={`${messages.loanNumber}...`}
           ariaLabel={messages.search}
         />
         <FilterSelect
           label={messages.year}
           value={String(year)}
-          onChange={(v) => {
-            setPage(1);
-            setYear(v === "" ? "" : Number(v));
-          }}
+          onChange={(v) => setFilter({ year: v })}
           options={[
             { value: "", label: messages.allYears },
             ...years.map((y) => ({ value: String(y), label: toPersianDigits(y) })),
@@ -88,10 +107,7 @@ export default function LoansPage() {
         <FilterSelect
           label={messages.statusLabel}
           value={status}
-          onChange={(v) => {
-            setPage(1);
-            setStatus(v as Status);
-          }}
+          onChange={(v) => setFilter({ status: v === "all" ? null : v })}
           options={[
             { value: "all", label: messages.allStatuses },
             { value: "active", label: messages.active },
@@ -105,10 +121,7 @@ export default function LoansPage() {
           min={0}
           max={3650}
           placeholder="۵"
-          onChange={(v) => {
-            setPage(1);
-            setDueWithin(v);
-          }}
+          onChange={(v) => setFilter({ due: v })}
         />
       </FilterBar>
 
@@ -212,41 +225,14 @@ export default function LoansPage() {
               </tbody>
             </table>
           </Card>
-          <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={data.total}
+            onChange={(p) => url.set({ page: p === 1 ? null : p })}
+          />
         </>
       )}
     </section>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey,
-  active,
-  dir,
-  onSort,
-}: {
-  label: string;
-  sortKey: SortKey;
-  active: SortKey | null;
-  dir: SortDir;
-  onSort: (k: SortKey) => void;
-}) {
-  const isActive = active === sortKey;
-  return (
-    <th className="px-4 py-2 text-start font-medium">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        aria-pressed={isActive}
-        aria-label={`${messages.sortedBy} ${label}`}
-        className="inline-flex items-center gap-1 hover:text-slate-900"
-      >
-        {label}
-        <span aria-hidden className={isActive ? "text-slate-900" : "text-slate-300"}>
-          {isActive ? (dir === "asc" ? "↑" : "↓") : "↕"}
-        </span>
-      </button>
-    </th>
   );
 }

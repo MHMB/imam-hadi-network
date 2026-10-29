@@ -1,8 +1,9 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import Link from "next/link";
 
+import { LoanFlow } from "@/components/loan/LoanFlow";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
@@ -63,7 +64,23 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
   const { id } = use(params);
   const loanId = Number(id);
   const { data, isLoading, isError } = useLoan(Number.isFinite(loanId) ? loanId : null);
-  const today = todayJalali();
+  const today = useMemo(() => todayJalali(), []);
+  const flowLenders = useMemo(
+    () =>
+      (data?.lenders ?? []).map((ln) => ({
+        id: ln.person.id,
+        name: ln.person.full_name,
+        amount: Number(ln.amount),
+        installments: ln.installments.map((i) => ({
+          y: i.due_persian_year,
+          m: i.due_persian_month,
+          d: i.due_day_of_month,
+          amount: Number(i.amount),
+          paid: i.status === "paid",
+        })),
+      })),
+    [data],
+  );
 
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState />;
@@ -95,14 +112,6 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
           </span>
           <span>·</span>
           <span>{topic.name}</span>
-          {liaisonLabel && (
-            <>
-              <span>·</span>
-              <span>
-                {messages.liaison}: {liaisonLabel}
-              </span>
-            </>
-          )}
           {channelNumber && (
             <>
               <span>·</span>
@@ -112,6 +121,49 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
             </>
           )}
         </div>
+        {/* Who is who on this loan: borrower, guarantor, liaison */}
+        <ul aria-label={messages.loanRoles} className="flex flex-wrap gap-2 pt-1">
+          {borrowers.map((p) => (
+            <li key={p.party_id}>
+              <Link
+                href={`/persons/${p.person.id}`}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full bg-slate-900 px-3 text-sm text-white hover:bg-slate-800"
+              >
+                <span className="text-slate-400">{messages.borrower}</span>
+                <strong className="font-semibold">{p.person.full_name}</strong>
+              </Link>
+            </li>
+          ))}
+          {guarantor && (
+            <li>
+              <Link
+                href={`/persons/${guarantor.id}`}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full border-[1.5px] border-amber-700 bg-amber-50 px-3 text-sm text-amber-900 hover:bg-amber-100"
+              >
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>{messages.guarantorLoan}</span>
+                <strong className="font-semibold">{guarantor.full_name}</strong>
+              </Link>
+            </li>
+          )}
+          {liaisonLabel && (
+            <li className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm text-slate-700">
+              <span>{messages.liaison}</span>
+              <strong className="font-semibold">{liaisonLabel}</strong>
+            </li>
+          )}
+        </ul>
         {description && <p className="text-sm text-slate-700">{description}</p>}
       </header>
 
@@ -122,19 +174,13 @@ export default function LoanDetailPage({ params }: { params: Promise<{ id: strin
         <SummaryStat label={messages.remaining} value={fmtMoneyMT(Number(totals.remaining))} />
       </div>
 
-      {guarantor && (
-        <Card>
-          <h2 className="text-sm font-medium text-slate-600">{messages.guarantorLoan}</h2>
-          <Link
-            href={`/persons/${guarantor.id}`}
-            className="mt-1 inline-block font-medium text-slate-900 hover:underline"
-          >
-            {guarantor.full_name}
-          </Link>
-        </Card>
-      )}
-
-      <PartySection title={messages.borrowers} items={borrowers} />
+      <LoanFlow
+        lenders={flowLenders}
+        borrowers={borrowers.map((p) => p.person)}
+        guarantor={guarantor}
+        total={Number(totals.total)}
+        today={today}
+      />
 
       {/* Compact lender roster — totals only; the schedule below is by date */}
       {lenders.length > 0 && (
@@ -246,33 +292,5 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
       <p className="text-xs font-medium text-slate-500">{label}</p>
       <p className="mt-1 text-base font-bold text-slate-900">{value}</p>
     </div>
-  );
-}
-
-function PartySection({ title, items }: { title: string; items: LoanData["borrowers"] }) {
-  if (items.length === 0) return null;
-  return (
-    <section className="space-y-2">
-      <h2 className="text-lg font-semibold text-slate-900">
-        {title} ({toPersianDigits(items.length)})
-      </h2>
-      <ul className="space-y-2">
-        {items.map((p) => (
-          <li key={p.party_id} className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <div className="flex items-center justify-between">
-              <Link
-                href={`/persons/${p.person.id}`}
-                className="font-medium text-slate-900 hover:underline"
-              >
-                {p.person.full_name}
-              </Link>
-              <span className="text-sm font-medium text-slate-700">
-                {fmtMoneyMT(Number(p.amount))}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

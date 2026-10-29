@@ -30,3 +30,15 @@ export function isPastDue(year: number, month: number, day: number, today: Jalal
   if (month !== today.jm) return month < today.jm;
   return day < today.jd;
 }
+
+/** Whole days from today to a Jalali date (negative = in the past). */
+export function daysFromToday(
+  year: number,
+  month: number,
+  day: number,
+  today: JalaliTriple,
+): number {
+  const a = jalaali.toGregorian(year, month, day);
+  const b = jalaali.toGregorian(today.jy, today.jm, today.jd);
+  return Math.round((Date.UTC(a.gy, a.gm - 1, a.gd) - Date.UTC(b.gy, b.gm - 1, b.gd)) / 86_400_000);
+}

@@ -15,7 +15,7 @@ type TopicRow = {
   id: number;
   name: string;
   loan_count: number;
-  share: number; // % of total loan COUNT, 0..100
+  share: number; // % of total loan AMOUNT, 0..100
   total: number;
   paid: number;
   outstanding: number;
@@ -47,8 +47,8 @@ export default function TopicsPage() {
 
   const rows = useMemo<TopicRow[]>(() => {
     if (!data) return [];
-    // Count share is relative to the total loans in the current (year) scope.
-    const totalLoans = data.reduce((acc, t) => acc + t.loan_count, 0);
+    // Amount share: topic total relative to all loan money in the current (year) scope.
+    const grandTotal = data.reduce((acc, t) => acc + Number(t.total), 0);
     const mapped = data.map((t) => {
       const total = Number(t.total);
       const outstanding = Number(t.outstanding);
@@ -57,7 +57,7 @@ export default function TopicsPage() {
         id: t.id,
         name: t.name,
         loan_count: t.loan_count,
-        share: totalLoans > 0 ? (t.loan_count / totalLoans) * 100 : 0,
+        share: grandTotal > 0 ? (total / grandTotal) * 100 : 0,
         total,
         paid,
         outstanding,
@@ -166,7 +166,7 @@ function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
-/** Count-share of all loans as a small slate bar + Persian percentage. */
+/** Amount-share of all loan money as a small slate bar + Persian percentage. */
 function ShareBar({ pct, hasLoans }: { pct: number; hasLoans: boolean }) {
   if (!hasLoans) {
     return <span className="text-xs text-slate-400">—</span>;

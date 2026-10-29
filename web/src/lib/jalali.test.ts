@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isFutureMonth, isPastDue, todayJalali } from "./jalali";
+import { daysFromToday, isFutureMonth, isPastDue, todayJalali } from "./jalali";
 
 const TODAY = { jy: 1405, jm: 3, jd: 21 }; // خرداد ۱۴۰۵
 
@@ -39,5 +39,14 @@ describe("todayJalali", () => {
     expect(t.jm).toBeLessThanOrEqual(12);
     expect(t.jd).toBeGreaterThanOrEqual(1);
     expect(t.jd).toBeLessThanOrEqual(31);
+  });
+});
+
+describe("daysFromToday", () => {
+  it("counts across month boundaries both ways", () => {
+    const today = { jy: 1405, jm: 8, jd: 7 }; // ۷ آبان
+    expect(daysFromToday(1405, 7, 1, today)).toBe(-36); // ۱ مهر: مهر has 30 days
+    expect(daysFromToday(1405, 9, 1, today)).toBe(24); // ۱ آذر
+    expect(daysFromToday(1405, 8, 7, today)).toBe(0);
   });
 });

@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { messages } from "@/lib/i18n";
-import { NAV_ITEMS } from "./nav-items";
+import { activeNavHref, NAV_ITEMS } from "./nav-items";
 
 export function Sidebar({ className = "" }: { className?: string }) {
-  const pathname = usePathname();
+  const current = activeNavHref(usePathname());
   return (
     <aside
       className={`flex flex-col border-l border-slate-200 bg-white ${className}`}
@@ -19,10 +19,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
       <nav className="flex-1 px-3" aria-label={messages.navHome}>
         <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const active = item.href === current;
             return (
               <li key={item.href}>
                 <Link
