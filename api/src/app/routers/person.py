@@ -5,8 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Query
 
 from app.db import SessionDep
-from app.schemas.person import PersonDetailResponse, PersonListItem
-from app.services.person import get_person_detail, list_persons
+from app.schemas.person import GuarantorOption, PersonDetailResponse, PersonListItem
+from app.services.person import get_person_detail, list_guarantor_options, list_persons
 from app.services.query import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, Page
 
 router = APIRouter(prefix="/api/persons", tags=["persons"])
@@ -23,6 +23,9 @@ async def list_(
     verified_only: bool = Query(default=False),
     has_debt: bool = Query(default=False),
     has_receivable: bool = Query(default=False),
+    guarantor_id: int | None = Query(default=None, description="Member guarantor (main slot)"),
+    sort: str | None = Query(default=None, pattern="^(name|lent|borrowed|net|overdue)$"),
+    sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
 ) -> Page[PersonListItem]:
@@ -32,9 +35,21 @@ async def list_(
         verified_only=verified_only,
         has_debt=has_debt,
         has_receivable=has_receivable,
+        guarantor_id=guarantor_id,
+        sort=sort,
+        sort_dir=sort_dir,
         page=page,
         page_size=page_size,
     )
+
+
+@router.get(
+    "/guarantors",
+    response_model=list[GuarantorOption],
+    summary="Member guarantors for the persons-list filter",
+)
+async def guarantors(session: SessionDep) -> list[GuarantorOption]:
+    return await list_guarantor_options(session)
 
 
 @router.get(

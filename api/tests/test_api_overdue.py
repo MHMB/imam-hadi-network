@@ -175,3 +175,30 @@ async def test_today_is_after_sample_data(sample_xlsm_path: Path) -> None:
     assert (today_j.year, today_j.month, today_j.day) > (1404, 5, 4), (
         "this test suite assumes today is past 1404/05/04 to validate overdue rows"
     )
+
+
+@pytest.mark.asyncio
+async def test_overdue_year_and_due_range_filters(seeded_client: AsyncClient) -> None:
+    every = (await seeded_client.get("/api/installments/overdue?page_size=500")).json()["items"]
+    assert every, "sample must have overdue installments"
+
+    by_year = (await seeded_client.get("/api/installments/overdue?year=1404&page_size=500")).json()
+    assert by_year["items"]
+    assert all(i["persian_year"] == 1404 for i in by_year["items"])
+    assert by_year["total"] == sum(1 for i in every if i["persian_year"] == 1404)
+
+    def key(i: dict[str, int]) -> tuple[int, int, int]:
+        return (i["due_persian_year"], i["due_persian_month"], i["due_day_of_month"])
+
+    lo, hi = min(key(i) for i in every), max(key(i) for i in every)
+    one_day = f"{lo[0]}-{lo[1]}-{lo[2]}"
+    ranged = (
+        await seeded_client.get(
+            f"/api/installments/overdue?due_from={one_day}&due_to={one_day}&page_size=500"
+        )
+    ).json()
+    assert ranged["total"] == sum(1 for i in every if key(i) == lo)
+    assert lo != hi or ranged["total"] == len(every)
+
+    bad = await seeded_client.get("/api/installments/overdue?due_from=1405-13-01")
+    assert bad.status_code == 422

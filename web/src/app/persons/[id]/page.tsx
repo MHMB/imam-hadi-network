@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { NoteBadge } from "@/components/ui/NoteBadge";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { displayPhone, fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { JALALI_MONTHS, messages } from "@/lib/i18n";
@@ -31,7 +32,7 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState />;
 
-  const { person, guarantors, by_year, upcoming, overdue } = data;
+  const { person, guarantors, guarantees, by_year, upcoming, overdue } = data;
 
   const borrowedTotal = Number(person.total_borrowed);
   const debtRemaining = Number(person.outstanding_debt);
@@ -142,6 +143,8 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
         tone="unpaid"
         items={upcoming.filter((i) => i.role === "lender")}
       />
+
+      <GuaranteesSection guarantees={guarantees} />
     </section>
   );
 }
@@ -274,6 +277,7 @@ function LoansAccordion({
                             · {toPersianDigits(loan.persian_year)} · {loan.topic_name}
                           </span>
                         </Link>
+                        {loan.has_note && <NoteBadge />}
                         <span className="flex items-baseline gap-3 text-slate-600">
                           <span>{fmtMoneyMT(Number(loan.total))}</span>
                           <span
@@ -375,6 +379,100 @@ function InstallmentSection({
           </li>
         ))}
       </ul>
+    </Card>
+  );
+}
+
+const GUARANTEES_PREVIEW = 8;
+
+/** Loans this person guaranteed: how much is still being repaid and how much is late. */
+function GuaranteesSection({
+  guarantees,
+}: {
+  guarantees: NonNullable<ReturnType<typeof usePerson>["data"]>["guarantees"];
+}) {
+  const [all, setAll] = useState(false);
+  if (guarantees.loan_count === 0) return null;
+  const overdue = Number(guarantees.overdue);
+  const shown = all ? guarantees.loans : guarantees.loans.slice(0, GUARANTEES_PREVIEW);
+  return (
+    <Card className="p-0">
+      <h2 className="border-b border-slate-100 px-4 py-3 text-lg font-semibold text-slate-900">
+        {messages.guaranteesTitle}
+      </h2>
+      <dl className="grid grid-cols-2 gap-4 px-4 py-3 text-sm md:grid-cols-4">
+        <div>
+          <dt className="text-slate-500">{messages.guaranteesLoans}</dt>
+          <dd className="mt-0.5 font-semibold text-slate-900">
+            {toPersianDigits(guarantees.loan_count)}
+            <span className="ms-1 text-xs font-normal text-slate-500">
+              ({toPersianDigits(guarantees.active_count)} {messages.guaranteesActive})
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">{messages.guaranteesTotal}</dt>
+          <dd className="mt-0.5 font-semibold text-slate-900">
+            {fmtMoneyMT(Number(guarantees.total))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">{messages.guaranteesRemaining}</dt>
+          <dd className="mt-0.5 font-semibold text-slate-900">
+            {fmtMoneyMT(Number(guarantees.remaining))}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">{messages.guaranteesOverdue}</dt>
+          <dd className={`mt-0.5 font-semibold ${overdue > 0 ? "text-overdue" : "text-slate-400"}`}>
+            {fmtMoneyMT(overdue)}
+          </dd>
+        </div>
+      </dl>
+      <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        {shown.map((ln) => (
+          <li
+            key={ln.loan_id}
+            className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm"
+          >
+            <Link
+              href={`/loans/${ln.loan_id}`}
+              className="font-medium text-slate-900 hover:underline"
+            >
+              {messages.loanNumber} {toPersianDigits(ln.loan_number)}
+              <span className="font-normal text-slate-500">
+                {" "}
+                · {toPersianDigits(ln.persian_year)} · {ln.borrower_name}
+              </span>
+            </Link>
+            <span className="flex items-baseline gap-3 text-slate-600">
+              <span>{fmtMoneyMT(Number(ln.total))}</span>
+              {Number(ln.overdue) > 0 ? (
+                <Badge tone="overdue">
+                  {messages.overdue}: {fmtMoneyMT(Number(ln.overdue))}
+                </Badge>
+              ) : Number(ln.remaining) > 0 ? (
+                <span>
+                  {messages.remaining}: {fmtMoneyMT(Number(ln.remaining))}
+                </span>
+              ) : (
+                <Badge tone="settled">{messages.settled}</Badge>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {guarantees.loans.length > GUARANTEES_PREVIEW && (
+        <button
+          type="button"
+          onClick={() => setAll((v) => !v)}
+          className="w-full border-t border-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          {all
+            ? messages.showLess
+            : `${messages.showAll} (${toPersianDigits(guarantees.loans.length)})`}
+        </button>
+      )}
     </Card>
   );
 }

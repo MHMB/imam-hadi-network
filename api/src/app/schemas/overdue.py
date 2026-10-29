@@ -16,6 +16,7 @@ class OverdueInstallmentItem(BaseModel):
     loan_id: int
     loan_number: str
     persian_year: int
+    has_note: bool = False
     topic_name: str
     borrower: PersonRef
     lender: PersonRef

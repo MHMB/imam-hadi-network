@@ -7,6 +7,7 @@ import { Suspense, useMemo } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { FilterBar, FilterNumber, FilterSearch, FilterSelect } from "@/components/ui/filters";
+import { NoteBadge } from "@/components/ui/NoteBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { type SortDir, SortableTh } from "@/components/ui/SortableTh";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
@@ -139,8 +140,9 @@ function LoansInner() {
                   className="block rounded-lg border border-slate-200 bg-white p-3 hover:border-slate-300"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-900">
+                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-900">
                       {messages.loanNumber} {toPersianDigits(ln.loan_number)}
+                      {ln.has_note && <NoteBadge />}
                     </span>
                     <Badge tone={ln.status}>
                       {ln.status === "active" ? messages.active : messages.settled}
@@ -206,9 +208,12 @@ function LoansInner() {
                     className="cursor-pointer hover:bg-slate-50"
                   >
                     <td className="px-4 py-3 font-medium">
-                      <Link href={`/loans/${ln.id}`} className="text-slate-900 hover:underline">
-                        {toPersianDigits(ln.loan_number)}
-                      </Link>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Link href={`/loans/${ln.id}`} className="text-slate-900 hover:underline">
+                          {toPersianDigits(ln.loan_number)}
+                        </Link>
+                        {ln.has_note && <NoteBadge />}
+                      </span>
                     </td>
                     <td className="px-4 py-3">{toPersianDigits(ln.persian_year)}</td>
                     <td className="px-4 py-3">{ln.borrower_name}</td>

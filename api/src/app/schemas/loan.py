@@ -27,6 +27,7 @@ class LoanListItem(BaseModel):
     paid: Decimal
     remaining: Decimal
     status: LoanStatus
+    has_note: bool = False  # loan carries a description the admin should read
 
 
 class InstallmentRef(BaseModel):

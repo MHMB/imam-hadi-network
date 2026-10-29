@@ -26,4 +26,6 @@ class KPIResponse(BaseModel):
     total_amount: Decimal
     outstanding_total: Decimal
     overdue_installments: int = Field(ge=0)
+    overdue_loans: int = Field(ge=0)  # loans with ≥1 late installment
+    overdue_amount: Decimal  # Σ late installments, million toman
     by_year: list[KPIByYear]

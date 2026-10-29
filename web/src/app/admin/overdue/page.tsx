@@ -1,45 +1,95 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useMemo } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
-import { FilterSelect } from "@/components/ui/filters";
+import { FilterBar, FilterSelect } from "@/components/ui/filters";
+import { JalaliDatePicker } from "@/components/ui/JalaliDatePicker";
+import { NoteBadge } from "@/components/ui/NoteBadge";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { fmtJalaliDate, fmtMoneyMT, toPersianDigits } from "@/lib/format";
 import { messages } from "@/lib/i18n";
-import { useOverdueInstallments } from "@/lib/query/hooks";
+import { useKpi, useOverdueInstallments } from "@/lib/query/hooks";
+import { useUrlParams } from "@/lib/url-params";
 
 const PAGE_SIZE = 50;
 const THRESHOLDS = [0, 30, 60, 90, 300, 600] as const;
 
 export default function AdminOverduePage() {
-  const [minDays, setMinDays] = useState<number>(0);
-  const [page, setPage] = useState(1);
+  return (
+    <Suspense fallback={<Loading />}>
+      <OverdueInner />
+    </Suspense>
+  );
+}
+
+function OverdueInner() {
+  const url = useUrlParams();
+  const minDays = url.num("days") || 0;
+  const year = url.num("year");
+  const dueFrom = url.str("from");
+  const dueTo = url.str("to");
+  const page = url.num("page") || 1;
+  const setFilter = (patch: Record<string, string | number | null>) =>
+    url.set({ ...patch, page: null });
+
+  const kpi = useKpi();
+  const years = useMemo(
+    () => (kpi.data ? [...kpi.data.by_year.map((y) => y.year)].sort((a, b) => b - a) : []),
+    [kpi.data],
+  );
+
   const { data, isLoading, isError } = useOverdueInstallments({
     min_days_overdue: minDays,
+    year: year === "" ? undefined : year,
+    due_from: dueFrom || undefined,
+    due_to: dueTo || undefined,
     page,
     page_size: PAGE_SIZE,
   });
 
   return (
     <section className="space-y-4">
-      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <header className="space-y-3">
         <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{messages.adminOverdue}</h1>
-        <FilterSelect
-          label={messages.daysOverdue}
-          value={String(minDays)}
-          onChange={(v) => {
-            setPage(1);
-            setMinDays(Number(v));
-          }}
-          options={THRESHOLDS.map((t) => ({
-            value: String(t),
-            label: t === 0 ? messages.allItems : `+${toPersianDigits(t)} ${messages.days}`,
-          }))}
-        />
+        <FilterBar>
+          <FilterSelect
+            label={messages.year}
+            value={String(year)}
+            onChange={(v) => setFilter({ year: v })}
+            options={[
+              { value: "", label: messages.allYears },
+              ...years.map((y) => ({ value: String(y), label: toPersianDigits(y) })),
+            ]}
+          />
+          <JalaliDatePicker
+            label={messages.dueFrom}
+            value={dueFrom}
+            onChange={(v) => setFilter({ from: v })}
+          />
+          <JalaliDatePicker
+            label={messages.dueTo}
+            value={dueTo}
+            onChange={(v) => setFilter({ to: v })}
+          />
+          <FilterSelect
+            label={messages.daysOverdue}
+            value={String(minDays)}
+            onChange={(v) => setFilter({ days: v === "0" ? null : v })}
+            options={THRESHOLDS.map((t) => ({
+              value: String(t),
+              label: t === 0 ? messages.allItems : `+${toPersianDigits(t)} ${messages.days}`,
+            }))}
+          />
+        </FilterBar>
+        {data && (
+          <p className="text-sm text-slate-600" role="status">
+            {toPersianDigits(data.total)} {messages.kpiOverdueInstallmentsHint}
+          </p>
+        )}
       </header>
 
       {isLoading && <Loading />}
@@ -61,6 +111,7 @@ export default function AdminOverduePage() {
                   >
                     {messages.loanNumber} {toPersianDigits(it.loan_number)}
                   </Link>
+                  {it.has_note && <NoteBadge />}
                   <Badge tone="overdue">
                     {toPersianDigits(it.days_overdue)} {messages.daysOverdue}
                   </Badge>
@@ -105,6 +156,11 @@ export default function AdminOverduePage() {
                       >
                         {toPersianDigits(it.loan_number)}
                       </Link>
+                      {it.has_note && (
+                        <span className="ms-1.5 inline-block align-middle">
+                          <NoteBadge />
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Link
@@ -147,7 +203,12 @@ export default function AdminOverduePage() {
               </tbody>
             </table>
           </Card>
-          <Pagination page={page} pageSize={PAGE_SIZE} total={data.total} onChange={setPage} />
+          <Pagination
+            page={page}
+            pageSize={PAGE_SIZE}
+            total={data.total}
+            onChange={(p) => url.set({ page: p === 1 ? null : p })}
+          />
         </>
       )}
     </section>

@@ -18,6 +18,7 @@ export type TopicSummary = Schemas["TopicSummary"];
 export type PageOfPersonListItem = Schemas["Page_PersonListItem_"];
 export type PersonListItem = Schemas["PersonListItem"];
 export type PersonDetailResponse = Schemas["PersonDetailResponse"];
+export type GuarantorOption = Schemas["GuarantorOption"];
 export type PageOfLoanListItem = Schemas["Page_LoanListItem_"];
 export type LoanListItem = Schemas["LoanListItem"];
 export type LoanDetailResponse = Schemas["LoanDetailResponse"];
@@ -86,10 +87,15 @@ export const api = {
       verified_only?: boolean;
       has_debt?: boolean;
       has_receivable?: boolean;
+      guarantor_id?: number;
+      sort?: "name" | "lent" | "borrowed" | "net" | "overdue";
+      sort_dir?: "asc" | "desc";
       page?: number;
       page_size?: number;
     } = {},
   ) => getJson<PageOfPersonListItem>(`/persons${qs(params)}`),
+
+  guarantorOptions: () => getJson<GuarantorOption[]>("/persons/guarantors"),
 
   person: (id: number) => getJson<PersonDetailResponse>(`/persons/${id}`),
 
@@ -128,7 +134,15 @@ export const api = {
   ) => getJson<Schemas["Page_DataIssueItem_"]>(`/issues${qs(params)}`),
 
   overdueInstallments: (
-    params: { min_days_overdue?: number; page?: number; page_size?: number } = {},
+    params: {
+      min_days_overdue?: number;
+      year?: number;
+      /** Jalali YYYY-MM-DD, inclusive */
+      due_from?: string;
+      due_to?: string;
+      page?: number;
+      page_size?: number;
+    } = {},
   ) => getJson<PageOfOverdueInstallmentItem>(`/installments/overdue${qs(params)}`),
 
   monthlyAnalytics: (params: { year?: number; month?: number } = {}) =>

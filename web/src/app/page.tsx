@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -57,7 +58,6 @@ export default function HomePage() {
       {data && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <KpiCard label={messages.kpiPersonsTotal} value={toPersianDigits(data.persons_total)} />
             <KpiCard
               label={messages.kpiLoansActive}
               value={toPersianDigits(data.loans_active)}
@@ -67,11 +67,22 @@ export default function HomePage() {
               label={messages.kpiOutstandingTotal}
               value={fmtMoneyMT(Number(data.outstanding_total))}
             />
-            <KpiCard
-              label={messages.kpiOverdue}
-              value={toPersianDigits(data.overdue_installments)}
-              tone={data.overdue_installments > 0 ? "danger" : "default"}
-            />
+            {/* A loan counts as overdue if even one of its installments is late. */}
+            <Link href="/admin/overdue" className="rounded-xl focus-visible:outline-2">
+              <KpiCard
+                label={messages.kpiOverdueLoans}
+                value={toPersianDigits(data.overdue_loans)}
+                hint={`${toPersianDigits(data.overdue_installments)} ${messages.kpiOverdueInstallmentsHint}`}
+                tone={data.overdue_loans > 0 ? "danger" : "default"}
+              />
+            </Link>
+            <Link href="/admin/overdue" className="rounded-xl focus-visible:outline-2">
+              <KpiCard
+                label={messages.kpiOverdueAmount}
+                value={fmtMoneyMT(Number(data.overdue_amount))}
+                tone={Number(data.overdue_amount) > 0 ? "danger" : "default"}
+              />
+            </Link>
           </div>
 
           {/* Monthly money circulation — whole history */}

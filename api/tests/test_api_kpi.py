@@ -62,6 +62,8 @@ async def test_kpi_shape_and_counts(seeded_client: AsyncClient) -> None:
         "total_amount",
         "outstanding_total",
         "overdue_installments",
+        "overdue_loans",
+        "overdue_amount",
         "by_year",
     }
 
@@ -90,3 +92,15 @@ async def test_kpi_settled_matches_loan_list(seeded_client: AsyncClient) -> None
     body = (await seeded_client.get("/api/kpi")).json()
     settled = (await seeded_client.get("/api/loans", params={"status": "settled"})).json()
     assert body["loans_settled"] == settled["total"]
+
+
+@pytest.mark.asyncio
+async def test_kpi_overdue_matches_overdue_list(seeded_client: AsyncClient) -> None:
+    body = (await seeded_client.get("/api/kpi")).json()
+    items = (
+        await seeded_client.get("/api/installments/overdue", params={"page_size": 500})
+    ).json()["items"]
+    assert body["overdue_installments"] == len(items)
+    assert body["overdue_loans"] == len({i["loan_id"] for i in items})
+    assert float(body["overdue_amount"]) == pytest.approx(sum(float(i["amount"]) for i in items))
+    assert body["overdue_loans"] <= body["loans_active"]
