@@ -88,3 +88,28 @@ async def test_phone_must_be_unique(seeded_client: AsyncClient) -> None:
     r = await seeded_client.patch(f"/api/persons/{b}", json={"phone": "+98 912 123 4567"})
     assert r.status_code == 422
     assert r.json()["detail"][0]["type"] == "duplicate"
+
+
+@pytest.mark.asyncio
+async def test_search_short_query_digits_and_phone(seeded_client: AsyncClient) -> None:
+    """«تست» finds «تست-…» names; a digit in a name query doesn't match phones."""
+    for name, phone in (
+        ("تست-قرض‌گیرنده", "09990000001"),
+        ("تست-قرض‌دهنده-۱", "09990000002"),
+        ("تست-قرض‌دهنده-۲", "09990000003"),
+    ):
+        r = await seeded_client.post("/api/persons", json={"full_name": name, "phone": phone})
+        assert r.status_code == 201, r.text
+
+    async def names(q: str) -> list[str]:
+        body = (await seeded_client.get("/api/persons", params={"q": q})).json()
+        return [p["full_name"] for p in body["items"]]
+
+    assert len(await names("تست")) == 3
+    # ZWNJ typed or not, Persian digit typed or ASCII: same single match first.
+    assert (await names("قرض‌دهنده-۲"))[0] == "تست-قرض‌دهنده-۲"
+    assert (await names("قرضدهنده-2"))[0] == "تست-قرض‌دهنده-۲"
+    assert len(await names("قرض‌دهنده-۲")) <= 3
+    assert await names("۰۹۹۹۰۰۰۰۰۰۳") == ["تست-قرض‌دهنده-۲"]
+    # A lone digit is a name search: only names containing it, not every phone.
+    assert all(("2" in n or "۲" in n) for n in await names("2"))

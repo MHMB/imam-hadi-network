@@ -156,3 +156,58 @@ async def test_create_person(seeded_client: AsyncClient) -> None:
     assert r.status_code == 201, r.text
     p = (await seeded_client.get(f"/api/persons/{r.json()['id']}")).json()["person"]
     assert p["phone"] == "+989351112233"
+
+
+@pytest.mark.asyncio
+async def test_borrower_cannot_guarantee_own_loan(seeded_client: AsyncClient) -> None:
+    borrower, lender = await _people(seeded_client, 2)
+    body = {
+        "borrower_id": borrower,
+        "topic_id": await _topic(seeded_client),
+        "lenders": [
+            {
+                "person_id": lender,
+                "amount": "2",
+                "installments": [{"year": 1405, "month": 9, "day": 1, "amount": "2"}],
+            }
+        ],
+    }
+    r = await seeded_client.post("/api/loans", json={**body, "guarantor_id": borrower})
+    assert r.status_code == 422
+    assert r.json()["detail"][0]["loc"] == ["body", "guarantor_id"]
+
+    loan_id = (await seeded_client.post("/api/loans", json=body)).json()["id"]
+    r = await seeded_client.patch(f"/api/loans/{loan_id}", json={"guarantor_id": borrower})
+    assert r.status_code == 422
+    assert (
+        await seeded_client.patch(f"/api/loans/{loan_id}", json={"guarantor_id": lender})
+    ).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_loan_history_names_ids_and_lists_payments(seeded_client: AsyncClient) -> None:
+    borrower, lender, guarantor = await _people(seeded_client, 3)
+    topics = (await seeded_client.get("/api/topics")).json()
+    body = {
+        "borrower_id": borrower,
+        "topic_id": topics[0]["id"],
+        "lenders": [
+            {
+                "person_id": lender,
+                "amount": "2",
+                "installments": [{"year": 1405, "month": 9, "day": 1, "amount": "2"}],
+            }
+        ],
+    }
+    loan_id = (await seeded_client.post("/api/loans", json=body)).json()["id"]
+    await seeded_client.patch(
+        f"/api/loans/{loan_id}", json={"topic_id": topics[1]["id"], "guarantor_id": guarantor}
+    )
+    pay = {"amount": "1", "paid": {"year": 1405, "month": 8, "day": 7}}
+    assert (await seeded_client.post(f"/api/loans/{loan_id}/payments", json=pay)).status_code == 201
+
+    entries = (await seeded_client.get(f"/api/audit?entity=loan&entity_id={loan_id}")).json()
+    assert [e["entity"] for e in entries][:1] == ["payment"]
+    update = next(e for e in entries if e["action"] == "update")
+    assert update["names"]["topic_id"][str(topics[1]["id"])] == topics[1]["name"]
+    assert str(guarantor) in update["names"]["guarantor_id"]

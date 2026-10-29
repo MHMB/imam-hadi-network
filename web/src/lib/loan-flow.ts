@@ -15,8 +15,15 @@ export type FlowInstallment = {
   m: number;
   d: number;
   amount: number;
-  paid: boolean;
+  paid: boolean; // fully paid
+  paidAmount?: number; // partial payments so far (ignored when paid)
 };
+
+/** Paid and still-open parts of one installment. */
+function parts(i: FlowInstallment): { paid: number; open: number } {
+  const paid = i.paid ? i.amount : Math.min(i.paidAmount ?? 0, i.amount);
+  return { paid, open: i.amount - paid };
+}
 export type FlowLenderInput = {
   id: number;
   name: string;
@@ -118,11 +125,10 @@ export function buildFlow(lenders: FlowLenderInput[], today: JalaliTriple): Flow
     let unpaid = 0;
     ms.forEach((l) =>
       l.installments.forEach((i) => {
-        if (i.paid) paid += i.amount;
-        else {
-          unpaid += i.amount;
-          if (isPastDue(i.y, i.m, i.d, today)) late += i.amount;
-        }
+        const p = parts(i);
+        paid += p.paid;
+        unpaid += p.open;
+        if (p.open > 0 && isPastDue(i.y, i.m, i.d, today)) late += p.open;
       }),
     );
     const others = gi === heads.length && tail.length > 0;
@@ -189,16 +195,23 @@ export function buildFlow(lenders: FlowLenderInput[], today: JalaliTriple): Flow
           minDay: 31,
           seg: new Map(),
         } as Bucket);
-      const status: SegStatus = i.paid ? "paid" : isPastDue(i.y, i.m, i.d, today) ? "late" : "next";
+      const p = parts(i);
+      const openStatus: SegStatus = isPastDue(i.y, i.m, i.d, today) ? "late" : "next";
       b.count += 1;
       b.amount += i.amount;
       b.minDay = Math.min(b.minDay, i.d);
-      if (status === "late" && (!b.firstLate || i.d < b.firstLate[2]))
+      if (p.open > 0 && openStatus === "late" && (!b.firstLate || i.d < b.firstLate[2]))
         b.firstLate = [i.y, i.m, i.d];
-      if (status === "next" && (!b.firstOpen || i.d < b.firstOpen[2]))
+      if (p.open > 0 && openStatus === "next" && (!b.firstOpen || i.d < b.firstOpen[2]))
         b.firstOpen = [i.y, i.m, i.d];
-      const sk = `${groupOf.get(l.id) ?? 0}|${status}`;
-      b.seg.set(sk, (b.seg.get(sk) ?? 0) + i.amount);
+      const g = groupOf.get(l.id) ?? 0;
+      const add = (status: SegStatus, amt: number) => {
+        if (amt <= 0) return;
+        const sk = `${g}|${status}`;
+        b.seg.set(sk, (b.seg.get(sk) ?? 0) + amt);
+      };
+      add("paid", p.paid);
+      add(openStatus, p.open);
       buckets.set(k, b);
     }),
   );

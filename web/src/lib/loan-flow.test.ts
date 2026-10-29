@@ -35,6 +35,25 @@ describe("buildFlow", () => {
     expect([hosein.paid, hosein.late, hosein.remaining]).toEqual([0, 1, 2]);
   });
 
+  it("counts partial payments: 1.3 of a 5 installment is paid, 3.7 still open", () => {
+    const f = buildFlow(
+      [
+        {
+          id: 1,
+          name: "الف",
+          amount: 5,
+          installments: [{ y: 1405, m: 9, d: 1, amount: 5, paid: false, paidAmount: 1.3 }],
+        },
+      ],
+      TODAY,
+    );
+    const [g] = f.groups;
+    expect(g.paid).toBeCloseTo(1.3);
+    expect(g.remaining).toBeCloseTo(3.7);
+    expect(f.months[0].state).toBe("next");
+    expect(f.outflows.map((o) => o.status)).toEqual(["paid", "next"]);
+  });
+
   it("puts the today line between the last due month and the first future one", () => {
     const f = buildFlow(WHITEBOARD, TODAY);
     const aban = f.months[1];

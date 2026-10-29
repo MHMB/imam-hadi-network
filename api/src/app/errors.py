@@ -7,6 +7,9 @@ the web client shows every message next to its input.
 
 from __future__ import annotations
 
+import re
+from decimal import Decimal
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -19,9 +22,23 @@ class FieldError(Exception):
         self.code = code
 
 
+_DECIMAL = re.compile(r"\d+\.\d+")
+_TO_PERSIAN = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def persian_numbers(message: str) -> str:
+    """«1.833» → «۱٫۸۳۳», «0.800» → «۰٫۸», «1405/12/31» → «۱۴۰۵/۱۲/۳۱»."""
+    trimmed = _DECIMAL.sub(lambda m: format(Decimal(m.group()).normalize(), "f"), message)
+    return re.sub(r"(?<=\d)\.(?=\d)", "٫", trimmed).translate(_TO_PERSIAN)
+
+
 async def field_error_handler(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, FieldError)
     return JSONResponse(
         status_code=422,
-        content={"detail": [{"loc": ["body", exc.field], "msg": exc.message, "type": exc.code}]},
+        content={
+            "detail": [
+                {"loc": ["body", exc.field], "msg": persian_numbers(exc.message), "type": exc.code}
+            ]
+        },
     )

@@ -13,6 +13,8 @@ export type GridInstallment = {
   amount: string;
   /** Already paid on this installment (schedule edit): amount can't go below it. */
   paid?: string;
+  /** A payment touched it once (even if voided): it can be edited, not deleted. */
+  locked?: boolean;
 };
 export type GridLender = {
   key: string;
@@ -108,6 +110,8 @@ export function ScheduleGrid({
                         <span className="text-xs text-paid">
                           {messages.paidPart}: {fmtMoneyMT(Number(inst.paid))}
                         </span>
+                      ) : inst.locked ? (
+                        <span className="text-xs text-slate-500">{messages.hasPaymentHistory}</span>
                       ) : (
                         <Button
                           aria-label={messages.remove}

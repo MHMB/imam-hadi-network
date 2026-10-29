@@ -43,7 +43,10 @@ from app.schemas.person import (
 )
 from app.services.money import PAID, REMAINING, remaining_of
 from app.services.person_edit import get_profile
-from app.services.query import Page, normalize_persian_name, page_bounds
+from app.services.query import Page, normalize_persian_name, normalized_sql, page_bounds
+
+# A search counts as a phone search from this many digits (and ≥70% digits).
+MIN_PHONE_DIGITS = 4
 
 
 def _today_jalali() -> tuple[int, int, int]:
@@ -252,18 +255,26 @@ async def list_persons(
         filters.append(func.coalesce(rollup.c.outstanding_debt, 0) > 0)
     if has_receivable:
         filters.append(func.coalesce(rollup.c.outstanding_receivable, 0) > 0)
+    similarity = None
     if q:
         normalised = normalize_persian_name(q)
         if normalised:
-            # Two complementary signals: trigram similarity on the full_name
-            # (for fuzzy Persian match) OR a digits-only phone substring match.
+            # Name: substring (short queries like «تست») OR trigram (typos), on
+            # the stored name folded the same way as the query.  Phone: only
+            # when the query is mostly a number — «علی-۲» must not match every
+            # phone containing a 2.
+            # ponytail: seq scan over ~1.5k persons; add an expression trgm
+            # index on normalized_sql(full_name) if this grows past ~50k.
+            name = normalized_sql(Person.full_name)
+            clause = or_(name.contains(normalised, autoescape=True), name.op("%")(normalised))
             digits_only = "".join(c for c in normalised if c.isdigit())
-            similar_clause = func.lower(Person.full_name).op("%")(normalised)
-            if digits_only:
-                phone_clause = Person.phone.icontains(digits_only)
-                filters.append(or_(similar_clause, phone_clause))
-            else:
-                filters.append(similar_clause)
+            compact = normalised.replace(" ", "")
+            if len(digits_only) >= MIN_PHONE_DIGITS and len(digits_only) * 10 >= len(compact) * 7:
+                # Phones are stored +98…; a typed 0912… matches without its 0.
+                needle = digits_only.removeprefix("0")
+                clause = or_(clause, Person.phone.contains(needle, autoescape=True))
+            filters.append(clause)
+            similarity = func.similarity(name, normalised)
     if filters:
         base = base.where(*filters)
 
@@ -281,8 +292,14 @@ async def list_persons(
     }
     col = sort_columns.get(sort or "name", Person.full_name)
     primary = col.desc() if sort_dir == "desc" else col.asc()
+    # A search without an explicit sort ranks the closest names first.
+    # The persons page always sends its default «name asc»; treat it as unsorted.
+    plain = not sort or (sort == "name" and sort_dir == "asc")
+    order = [similarity.desc()] if similarity is not None and plain else []
     page_q = (
-        base.order_by(nulls_last(primary), Person.full_name, Person.id).offset(offset).limit(limit)
+        base.order_by(*order, nulls_last(primary), Person.full_name, Person.id)
+        .offset(offset)
+        .limit(limit)
     )
     rows = (await session.execute(page_q)).all()
 

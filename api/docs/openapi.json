@@ -1831,6 +1831,17 @@
               }
             ],
             "title": "After"
+          },
+          "names": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Names",
+            "default": {}
           }
         },
         "type": "object",
@@ -2326,6 +2337,11 @@
             "type": "string",
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Amount Paid"
+          },
+          "has_history": {
+            "type": "boolean",
+            "title": "Has History",
+            "default": false
           },
           "status": {
             "$ref": "#/components/schemas/InstallmentStatus"
@@ -3037,6 +3053,11 @@
             ],
             "title": "Status"
           },
+          "overdue": {
+            "type": "boolean",
+            "title": "Overdue",
+            "default": false
+          },
           "has_note": {
             "type": "boolean",
             "title": "Has Note",
@@ -3353,7 +3374,14 @@
             "title": "Topic Name"
           },
           "borrower": {
-            "$ref": "#/components/schemas/PersonRef"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "lender": {
             "$ref": "#/components/schemas/PersonRef"

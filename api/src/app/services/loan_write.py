@@ -143,6 +143,8 @@ async def create_loan(session: AsyncSession, user: AppUser, body: LoanCreate) ->
     lender_ids = [ln.person_id for ln in body.lenders]
     if body.borrower_id in lender_ids:
         raise FieldError("borrower_id", "قرض‌گیرنده نمی‌تواند قرض‌دهنده همین قرض باشد.")
+    if body.guarantor_id is not None and body.guarantor_id == body.borrower_id:
+        raise FieldError("guarantor_id", GUARANTOR_IS_BORROWER)
     await _require_people(
         session,
         {
@@ -222,6 +224,9 @@ async def create_loan(session: AsyncSession, user: AppUser, body: LoanCreate) ->
     return loan
 
 
+GUARANTOR_IS_BORROWER = "قرض‌گیرنده نمی‌تواند ضامن همین قرض باشد."
+
+
 def _set_issued(loan: Loan, issued: JalaliDate | None) -> None:
     if issued is not None and not is_valid(issued.year, issued.month, issued.day):
         raise FieldError("issued", "تاریخ پرداخت قرض معتبر نیست.")
@@ -242,6 +247,22 @@ async def update_loan(
         session,
         {f: getattr(body, f) for f in ("guarantor_id", "liaison_person_id") if f in fields},
     )
+    # Only a *new* guarantor is checked: legacy rows where guarantor == borrower
+    # must stay editable (the dialog resends unchanged fields).
+    if (
+        "guarantor_id" in fields
+        and body.guarantor_id is not None
+        and body.guarantor_id != loan.guarantor_id
+    ):
+        borrower_ids = (
+            await session.execute(
+                select(LoanParty.person_id).where(
+                    LoanParty.loan_id == loan.id, LoanParty.role == LoanPartyRole.borrower
+                )
+            )
+        ).scalars()
+        if body.guarantor_id in set(borrower_ids):
+            raise FieldError("guarantor_id", GUARANTOR_IS_BORROWER)
     if "topic_id" in fields:
         if body.topic_id is None:
             raise FieldError("topic_id", "موضوع لازم است.")

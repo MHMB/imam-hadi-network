@@ -192,3 +192,29 @@ async def test_overdue_year_and_due_range_filters(seeded_client: AsyncClient) ->
 
     bad = await seeded_client.get("/api/installments/overdue?due_from=1405-13-01")
     assert bad.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_overdue_keeps_loans_without_borrower(seeded_client: AsyncClient) -> None:
+    """Excel loans with no borrower row still show (borrower=None), so the
+    list total keeps matching the KPI."""
+    engine = create_async_engine(str(settings.database_url))
+    async with engine.begin() as conn:
+        loan_id = (
+            await conn.exec_driver_sql(
+                "SELECT lp.loan_id FROM installment i JOIN loan_party lp "
+                "ON lp.id = i.loan_party_id WHERE i.status = 'unpaid' "
+                "AND lp.role = 'lender' LIMIT 1"
+            )
+        ).scalar_one()
+        await conn.exec_driver_sql(
+            f"DELETE FROM loan_party WHERE loan_id = {loan_id} AND role = 'borrower'"
+        )
+    await engine.dispose()
+
+    kpi = (await seeded_client.get("/api/kpi")).json()
+    listing = (await seeded_client.get("/api/installments/overdue?page_size=500")).json()
+    assert listing["total"] == kpi["overdue_installments"]
+    orphan = [it for it in listing["items"] if it["loan_id"] == loan_id]
+    assert orphan
+    assert all(it["borrower"] is None for it in orphan)

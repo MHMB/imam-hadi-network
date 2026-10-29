@@ -18,7 +18,7 @@ class OverdueInstallmentItem(BaseModel):
     persian_year: int
     has_note: bool = False
     topic_name: str
-    borrower: PersonRef
+    borrower: PersonRef | None  # None: Excel loan without a borrower row
     lender: PersonRef
     guarantor: PersonRef | None
     due_persian_year: int

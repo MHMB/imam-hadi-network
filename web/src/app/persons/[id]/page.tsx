@@ -179,7 +179,7 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
       <GuaranteesSection
         guarantees={brokered}
         title={messages.brokeredTitle}
-        countLabel={messages.brokeredLoans}
+        labels={BROKERED_LABELS}
       />
       <AuditHistory entity="person" id={person.id} />
       {editing && <EditPersonDialog open onClose={() => setEditing(false)} detail={data} />}
@@ -426,15 +426,29 @@ function InstallmentSection({
 
 const GUARANTEES_PREVIEW = 8;
 
-/** Loans this person guaranteed: how much is still being repaid and how much is late. */
+type SectionLabels = { count: string; total: string; remaining: string; overdue: string };
+const GUARANTEE_LABELS: SectionLabels = {
+  count: messages.guaranteesLoans,
+  total: messages.guaranteesTotal,
+  remaining: messages.guaranteesRemaining,
+  overdue: messages.guaranteesOverdue,
+};
+const BROKERED_LABELS: SectionLabels = {
+  count: messages.brokeredLoans,
+  total: messages.brokeredTotal,
+  remaining: messages.guaranteesRemaining,
+  overdue: messages.brokeredOverdue,
+};
+
+/** Loans this person guaranteed (or brokered as رابط): how much is still being repaid and how much is late. */
 function GuaranteesSection({
   guarantees,
   title,
-  countLabel = messages.guaranteesLoans,
+  labels = GUARANTEE_LABELS,
 }: {
   guarantees: NonNullable<ReturnType<typeof usePerson>["data"]>["guarantees"];
   title: string;
-  countLabel?: string;
+  labels?: SectionLabels;
 }) {
   const [all, setAll] = useState(false);
   if (guarantees.loan_count === 0) return null;
@@ -447,7 +461,7 @@ function GuaranteesSection({
       </h2>
       <dl className="grid grid-cols-2 gap-4 px-4 py-3 text-sm md:grid-cols-4">
         <div>
-          <dt className="text-slate-500">{countLabel}</dt>
+          <dt className="text-slate-500">{labels.count}</dt>
           <dd className="mt-0.5 font-semibold text-slate-900">
             {toPersianDigits(guarantees.loan_count)}
             <span className="ms-1 text-xs font-normal text-slate-500">
@@ -456,19 +470,19 @@ function GuaranteesSection({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">{messages.guaranteesTotal}</dt>
+          <dt className="text-slate-500">{labels.total}</dt>
           <dd className="mt-0.5 font-semibold text-slate-900">
             {fmtMoneyMT(Number(guarantees.total))}
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">{messages.guaranteesRemaining}</dt>
+          <dt className="text-slate-500">{labels.remaining}</dt>
           <dd className="mt-0.5 font-semibold text-slate-900">
             {fmtMoneyMT(Number(guarantees.remaining))}
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">{messages.guaranteesOverdue}</dt>
+          <dt className="text-slate-500">{labels.overdue}</dt>
           <dd className={`mt-0.5 font-semibold ${overdue > 0 ? "text-overdue" : "text-slate-400"}`}>
             {fmtMoneyMT(overdue)}
           </dd>
