@@ -30,23 +30,26 @@ in DESIGN.md §7 are answered.
 - [x] **A2.3 (R8)** API `/api/persons`: return each person's member guarantor (`person_guarantor` slot `main`) and `overdue_total`; add `guarantor_id` filter and `sort` = `lent | borrowed | net | overdue` (+ `sort_dir`). New `GET /api/persons/guarantors` (distinct guarantors, for the dropdown).
 - [x] **A2.4 (R8)** Persons list UI: «ضامن» column replaces «تأییدشده» (verified moves to a small badge by the name); «جمع معوقات» column; sortable headers; searchable guarantor filter that filters the whole table.
 - [x] **A2.5 (R9a)** API `/api/persons/{id}`: `guarantees` block from `loan.guarantor_id` — loans guaranteed (count, list), total guaranteed, still in installments, overdue on them. Profile section «ضمانت‌ها».
-- [ ] **A2.6 (R10)** API `/api/persons/{id}`: `monthly` series — paid out (as borrower) and received (as lender) per Jalali month, with net. Profile chart + table. *(Blocked by Q6 — confirm meaning first.)*
+- [ ] **A2.6 (R10) — on hold** until the client sends loan-number → month data. Person: per month, how much the person **lent** and how much they **borrowed** (new loans; installment payments out of scope). *Blocked: the workbook has no loan date — proxy for history = month of the loan's first installment (marked «تقریبی»); app-created loans (B4) use their real date. Confirm placement (list columns for a chosen month and/or profile monthly table).*
 - [x] **A2.7 (R14a)** Loans API list item + person loan lists: expose `has_note` (existing `loan.description` not empty). Badge icon on loan rows (loans list, person accordion, overdue page); note text shown on the loan page.
+
+- [ ] **A3.1 (Q7)** Global sidebar collapsible: a menu (hamburger) icon opens it; clicking again hides it; content takes the full width; state remembered in the browser.
 
 ---
 
 ## Phase B — schema change / writes
 
 ### B0 — Decisions (before any B work)
-- [ ] **B0.1** Answers to DESIGN.md §7: Q1 cutover, Q2 over-payment rule, Q3 roles, Q4 bank fields, Q5 «سرمایه نزد صندوق», Q7 sidebar, Q8 liaison, Q9 platforms.
+- [x] **B0.1** Answers to DESIGN.md §7 (Q1–Q5, Q7–Q9). Q6 «ماهانه» still open (only blocks A2.6).
 
 ### B1 — Write foundation (invisible)
 - [ ] **B1.1** `services/money.py` `remaining_expr`; switch every status-sum in kpi / loan / person / topic / analytics / overdue to it; snapshot tests prove identical numbers on the real workbook.
 - [ ] **B1.2** Migration: `installment.amount_paid` + status `partial`; backfill paid rows.
-- [ ] **B1.3** Migration: `loan.origin`, `import_id` nullable; importer guard refuses years with app loans/payments (CLI `--force` only).
-- [ ] **B1.4** Migration: `user`, `audit_log`; API reads username from Traefik basic-auth; `GET /api/me`; per-user htpasswd lines in prod `.env`; CORS + PUT/PATCH/DELETE.
+- [ ] **B1.3** Migration: `loan.origin`, `import_id` nullable; importer guard for years with app loans/payments — `IMPORT_GUARD=confirm` during testing (admin must tick a confirmation in the upload form), `refuse` after cutover.
+- [ ] **B1.4** Migration: `user`, `audit_log` (before / after JSON on every write); API reads username from Traefik basic-auth; `GET /api/me`; CORS + PUT/PATCH/DELETE. Single role (admin) for now.
+- [ ] **B1.7** «تاریخچه تغییرات» view on loan and person pages (reads `audit_log`).
 - [ ] **B1.5** Web form kit: JSON `post/patch` client with 422 field errors, `<Dialog>`, zod forms, `<JalaliDateInput>`, `<PersonCombobox>`, mutation invalidation helper.
-- [ ] **B1.6** Cutover: final Excel import on prod; workbook frozen (ADR-1).
+- [ ] **B1.6** Cutover at **end of testing**: final Excel import on prod, `IMPORT_GUARD=refuse` (import feature stays).
 
 ### B2 — People editing (R11)
 - [ ] **B2.1** Migration: `person_contact`, `person.bank_iban`, `person.bank_card`; migrate `messenger` text.
@@ -67,7 +70,7 @@ in DESIGN.md §7 are answered.
 
 ### B5 — Payments (R13, R5b)
 - [ ] **B5.1** Migration `payment`, `payment_allocation`.
-- [ ] **B5.2** Allocation service: FIFO (rule per Q2), row locks, partial + carry-forward, void + recompute; property tests.
+- [ ] **B5.2** Allocation service: default = ledger order (oldest due first), admin can override the split; payment above total remaining → warning + admin confirmation → excess kept as borrower credit; row locks; void + recompute; property tests.
 - [ ] **B5.3** `POST /api/loans/{id}/payments/preview`, `POST /api/loans/{id}/payments`, `POST /api/payments/{id}/void`; `PUT /api/loans/{id}/schedule` (unpaid part only).
 - [ ] **B5.4** Payment dialog (amount → preview split, or tick installments), schedule edit mode; «تسویه سریع قسط» on home.
 - [ ] **B5.5** Loan-flow view (A1.6) gains inline payment actions.

@@ -227,14 +227,27 @@ Out of scope (noted for later): «امتیاز خوش‌حسابی» score colum
 
 ---
 
-## 7. Open questions (need answers before P2)
+## 7. Decisions (answered 1405/08/07)
 
-1. **Q1 Cutover:** after which upload does the Excel stop being edited? Until then, P4/P5 must stay off in prod.
-2. **Q2 Over-payment:** the extra goes to the oldest due installment of the **loan** (any lender), or of the **same lender** first?
-3. **Q3 Roles:** who may void a payment or edit a schedule — admin only, or support too?
-4. **Q4 Bank:** IBAN (شبا), card number, or both? Required or optional?
-5. **Q5 «سرمایه نزد صندوق»:** confirm it equals our `net_capital` (receivable − debt) — or lent − borrowed?
-6. **Q6 R10 «ماهانه»:** monthly installments paid/received, or new loans given/taken per month?
-7. **Q7 «سایدبار داینامیک»:** collapsible sidebar? menu items by role? badges with live counts (e.g. overdue)?
-8. **Q8 Liaison:** link رابط to a person record (and treat «روابط» as a channel), as proposed in ADR-5?
-9. **Q9 Platforms:** final list — Telegram, Bale, Eitaa, WhatsApp, Rubika, phone call, in person — anything else?
+| Q | Decision | Source |
+|---|---|---|
+| Q1 Cutover | Excel stays the source **during the test period** (another update arrives today). At **end of testing** the workbook is retired and the app is the only source. The xlsm import feature stays in the system. | user |
+| Q2 Over-payment | Default allocation follows the **installment ledger order** (oldest due first, as the schedule says); the admin can **edit the split** and choose who gets what. A payment larger than the whole remaining balance → **warning**, and only after the admin confirms is the excess stored as the **borrower's credit** on the loan. | user |
+| Q3 Roles | One role for now: **admin**, with full edit rights. **Every admin edit is logged with before / after state** (who, when, what changed). | user |
+| Q4 Bank | One optional **account-number** field. Phone is the only required profile field. | voice 09.52.14 |
+| Q5 «سرمایه نزد صندوق» | = `net_capital` (receivable − debt), as the app already labels it. | existing app |
+| Q6 «ماهانه» (A2.6) | Per month: amount **lent** and amount **borrowed** (new loans), not installment payments. Open: loan date proxy + placement. | user |
+| Q7 Sidebar «داینامیک» | The global sidebar becomes **collapsible**: collapsed = hidden, with a menu (hamburger) icon; click opens it, click again hides it. | user |
+| Q8 Liaison | Link رابط to a person (implied by "how much they brokered / settled"); «روابط» / «روابط عمومی» stay a channel label. | voices 08.43.52, 08.44.00 |
+| Q9 Platforms | Telegram, Bale, Eitaa (named in voice), one default per person. | voice 09.52.14 |
+
+**Consequences for ADR-1 (cutover) during the test period.** Re-importing a year deletes app-created
+data in that year. While testing, the importer **warns** and requires an explicit admin confirmation
+(«داده‌های ثبت‌شده در سامانه برای سال ۱۴۰۵ پاک می‌شود») instead of refusing; at end of testing it
+switches to **refuse** (a config flag, `IMPORT_GUARD=confirm|refuse`).
+
+**Consequences for ADR-2 (payments).** Credit = the part of a confirmed payment not allocated to any
+installment (`payment.amount − Σ allocations`); shown on the loan and the borrower's profile. No extra table.
+
+**Consequences for ADR-4 (auth).** No role column is needed yet; every user is admin. `audit_log`
+stores `before` and `after` JSON for every write, and the loan / person pages get a «تاریخچه تغییرات» view.
