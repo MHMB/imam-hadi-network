@@ -9,6 +9,7 @@ WIPE_TABLES = (
     "payment",
     "person_contact",
     "liaison_alias",
+    "person_alias",
     "data_issue",
     "installment",
     "loan_party",

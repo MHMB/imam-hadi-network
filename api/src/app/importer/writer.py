@@ -45,6 +45,7 @@ from app.models import (
     LoanTopic,
     Payment,
     Person,
+    PersonAlias,
     PersonGuarantor,
 )
 from app.models.enums import ImportStatus, InstallmentStatus, LoanOrigin, LoanPartyRole
@@ -186,7 +187,9 @@ async def _apply_parse_result(
             topic_names.append(loan.topic_name)
     topic_id_by_name = await _upsert_topics(session, topic_names)
 
-    person_id_by_key = await _upsert_persons(session, result.persons)
+    person_id_by_key = await _upsert_persons(
+        session, result.persons, await load_person_aliases(session)
+    )
     await _ensure_referenced_persons(session, result.loans, person_id_by_key)
 
     years = sorted({loan.persian_year for loan in result.loans})
@@ -254,22 +257,26 @@ async def _upsert_topics(session: AsyncSession, names: list[str]) -> dict[str, i
 async def _upsert_persons(
     session: AsyncSession,
     parsed: list[ParsedPerson],
+    aliases: dict[str, int] | None = None,
 ) -> dict[str, int]:
     """Insert / refresh the افراد master persons; return identity-key → id.
 
     Person rows are matched by canonical phone (real numbers and the
     hash-derived placeholders are both stable), but the *returned* mapping
     is keyed by :func:`app.importer.names.resolve_key` so loan references
-    in any spelling variant resolve to the right row.
+    in any spelling variant resolve to the right row.  Names an admin merged
+    (``aliases``) map to the kept person; their master rows are skipped so
+    the duplicate is not re-created.
     """
+    by_key: dict[str, int] = dict(aliases or {})
+    parsed = [p for p in parsed if resolve_key(p.full_name) not in by_key]
     if not parsed:
-        return {}
+        return by_key
 
     phones = [p.phone_canonical for p in parsed if p.phone_canonical]
     existing = await session.execute(select(Person).where(Person.phone.in_(phones)))
     by_phone: dict[str, Person] = {row.phone: row for row in existing.scalars()}
 
-    by_key: dict[str, int] = {}
     for parsed_p in parsed:
         row = by_phone.get(parsed_p.phone_canonical)
         if row is None:
@@ -385,6 +392,11 @@ def _liaison_person(
         return None
     key = resolve_key(label)
     return aliases[key] if key in aliases else person_ids.get(key)
+
+
+async def load_person_aliases(session: AsyncSession) -> dict[str, int]:
+    rows = await session.execute(select(PersonAlias.name_key, PersonAlias.person_id))
+    return {str(k): pid for k, pid in rows.all()}
 
 
 async def load_liaison_aliases(session: AsyncSession) -> dict[str, int | None]:

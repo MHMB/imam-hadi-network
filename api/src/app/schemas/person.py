@@ -110,6 +110,14 @@ class LiaisonLink(BaseModel):
     person_id: int | None
 
 
+class PersonMerge(BaseModel):
+    """POST body: fold these duplicates into the person in the URL."""
+
+    drop_ids: list[int] = Field(min_length=1, max_length=20)
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)
+    """Optional new display name for the kept person."""
+
+
 class GuarantorOption(BaseModel):
     """A member guarantor for the persons-list filter."""
 

@@ -15,6 +15,7 @@ const ACTION_LABEL: Record<string, string> = {
   void: "برگرداندن پرداخت",
   edit_schedule: "ویرایش جدول اقساط",
   link: "اتصال رابط",
+  merge: "ادغام افراد تکراری",
   confirm_data_loss: "تأیید بارگذاری",
 };
 // Same action, but on a payment row shown in its loan's history.
@@ -33,6 +34,7 @@ const FIELD_LABEL: Record<string, string> = {
   note_flagged: "توضیح مهم",
   issued: "تاریخ پرداخت قرض",
   full_name: "نام",
+  merged: "ادغام‌شده‌ها",
   phone: "شماره تماس",
   bank_account: "شماره حساب",
   messenger: "پیام‌رسان",

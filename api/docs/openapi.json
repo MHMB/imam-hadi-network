@@ -1060,6 +1060,58 @@
         }
       }
     },
+    "/api/persons/{person_id}/merge": {
+      "post": {
+        "tags": [
+          "persons"
+        ],
+        "summary": "Fold duplicate persons into this one; their names stay mapped here on import",
+        "operationId": "merge_api_persons__person_id__merge_post",
+        "parameters": [
+          {
+            "name": "person_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Person Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonMerge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/topics": {
       "get": {
         "tags": [
@@ -4139,6 +4191,38 @@
         ],
         "title": "PersonListItem",
         "description": "Row on the persons list page (DESIGN.md §6.2.2)."
+      },
+      "PersonMerge": {
+        "properties": {
+          "drop_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Drop Ids"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "drop_ids"
+        ],
+        "title": "PersonMerge",
+        "description": "POST body: fold these duplicates into the person in the URL."
       },
       "PersonProfile": {
         "properties": {

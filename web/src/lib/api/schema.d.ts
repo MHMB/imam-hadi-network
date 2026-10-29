@@ -199,6 +199,23 @@ export interface paths {
         patch: operations["update_api_persons__person_id__patch"];
         trace?: never;
     };
+    "/api/persons/{person_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fold duplicate persons into this one; their names stay mapped here on import */
+        post: operations["merge_api_persons__person_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/topics": {
         parameters: {
             query?: never;
@@ -1293,6 +1310,16 @@ export interface components {
             guarantor?: components["schemas"]["PersonRef"] | null;
         };
         /**
+         * PersonMerge
+         * @description POST body: fold these duplicates into the person in the URL.
+         */
+        PersonMerge: {
+            /** Drop Ids */
+            drop_ids: number[];
+            /** Full Name */
+            full_name?: string | null;
+        };
+        /**
          * PersonProfile
          * @description Editable profile fields shown on the person page.
          */
@@ -1974,6 +2001,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PersonUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_api_persons__person_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                person_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonMerge"];
             };
         };
         responses: {
