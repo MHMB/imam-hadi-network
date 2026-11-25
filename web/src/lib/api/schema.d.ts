@@ -1326,6 +1326,14 @@ export interface components {
         PersonProfile: {
             /** Bank Account */
             bank_account: string | null;
+            /** Card Numbers */
+            card_numbers: string[];
+            /** Ibans */
+            ibans: string[];
+            /** First Name */
+            first_name: string | null;
+            /** Last Name */
+            last_name: string | null;
             /** Messenger */
             messenger: string | null;
             /** Contacts */
@@ -1354,6 +1362,16 @@ export interface components {
             phone: string;
             /** Bank Account */
             bank_account?: string | null;
+            /** Card Numbers */
+            card_numbers?: string[];
+            /** Ibans */
+            ibans?: string[];
+            /** National Code */
+            national_code?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
             /** Contacts */
             contacts?: components["schemas"]["ContactRef"][];
         };

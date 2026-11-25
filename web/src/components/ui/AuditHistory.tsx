@@ -16,6 +16,7 @@ const ACTION_LABEL: Record<string, string> = {
   edit_schedule: "ویرایش جدول اقساط",
   link: "اتصال رابط",
   merge: "ادغام افراد تکراری",
+  import_members: "بارگذاری فهرست اعضا",
   confirm_data_loss: "تأیید بارگذاری",
 };
 // Same action, but on a payment row shown in its loan's history.
@@ -37,6 +38,11 @@ const FIELD_LABEL: Record<string, string> = {
   merged: "ادغام‌شده‌ها",
   phone: "شماره تماس",
   bank_account: "شماره حساب",
+  card_numbers: "شماره کارت",
+  ibans: "شماره شبا",
+  national_code: "کد ملی",
+  first_name: "نام",
+  last_name: "نام خانوادگی",
   messenger: "پیام‌رسان",
   contacts: "راه‌های ارتباطی",
   person_id: "فرد",
@@ -62,6 +68,8 @@ function show(e: AuditEntry, key: string, v: unknown): string {
   if (named) return named;
   if (typeof v === "boolean") return v ? "بله" : "خیر";
   if (key === "source_platform") return platformLabel(v as Platform);
+  if (Array.isArray(v) && v.every((x) => typeof x === "string"))
+    return v.length ? v.map((x) => toPersianDigits(x)).join("، ") : "—";
   if (Array.isArray(v)) return `${toPersianDigits(v.length)} مورد`;
   if (typeof v === "object") return "…";
   return toPersianDigits(String(v));

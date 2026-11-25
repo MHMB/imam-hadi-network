@@ -97,6 +97,15 @@ async def merge_persons(
         (d.bank_account for d in drops if d.bank_account), None
     )
     keep.messenger = keep.messenger or next((d.messenger for d in drops if d.messenger), None)
+    keep.first_name = keep.first_name or next((d.first_name for d in drops if d.first_name), None)
+    keep.last_name = keep.last_name or next((d.last_name for d in drops if d.last_name), None)
+    keep.card_numbers = list(
+        dict.fromkeys(keep.card_numbers + [c for d in drops for c in d.card_numbers])
+    )
+    keep.ibans = list(dict.fromkeys(keep.ibans + [c for d in drops for c in d.ibans]))
+    # Unique columns move only after the duplicates are deleted.
+    phone = next((d for d in drops if not d.phone.startswith("+0__")), None)
+    code = next((d.national_code for d in drops if d.national_code), None)
     names = [d.full_name for d in drops]
     if body.full_name and body.full_name.strip() != old_name:
         names.append(old_name)
@@ -115,6 +124,9 @@ async def merge_persons(
     await session.execute(
         delete(Person).where(Person.id.in_(ids)).execution_options(synchronize_session=False)
     )
+    if keep.phone.startswith("+0__") and phone is not None:
+        keep.phone, keep.phone_raw = phone.phone, phone.phone_raw
+    keep.national_code = keep.national_code or code
     await record(
         session,
         user,

@@ -262,7 +262,8 @@ async def _upsert_persons(
     """Insert / refresh the افراد master persons; return identity-key → id.
 
     Person rows are matched by canonical phone (real numbers and the
-    hash-derived placeholders are both stable), but the *returned* mapping
+    hash-derived placeholders are both stable), else by name for people whose
+    real phone was set after import, but the *returned* mapping
     is keyed by :func:`app.importer.names.resolve_key` so loan references
     in any spelling variant resolve to the right row.  Names an admin merged
     (``aliases``) map to the kept person; their master rows are skipped so
@@ -276,9 +277,10 @@ async def _upsert_persons(
     phones = [p.phone_canonical for p in parsed if p.phone_canonical]
     existing = await session.execute(select(Person).where(Person.phone.in_(phones)))
     by_phone: dict[str, Person] = {row.phone: row for row in existing.scalars()}
+    by_name = await _persons_by_key(session)
 
     for parsed_p in parsed:
-        row = by_phone.get(parsed_p.phone_canonical)
+        row = by_phone.get(parsed_p.phone_canonical) or by_name.get(resolve_key(parsed_p.full_name))
         if row is None:
             row = Person(
                 phone=parsed_p.phone_canonical,
@@ -329,6 +331,17 @@ async def _upsert_persons(
     return by_key
 
 
+async def _persons_by_key(session: AsyncSession) -> dict[str, Person]:
+    """Every person by name identity key.
+
+    The sheet has no phones, so a person whose real phone was set (in the app
+    or from the member list) no longer matches their placeholder phone; the
+    name still does.
+    """
+    rows = await session.execute(select(Person))
+    return {resolve_key(p.full_name): p for p in rows.scalars()}
+
+
 async def _ensure_referenced_persons(
     session: AsyncSession,
     parsed_loans: list[ParsedLoan],
@@ -363,9 +376,10 @@ async def _ensure_referenced_persons(
         select(Person).where(Person.phone.in_(list(placeholder_by_key.values())))
     )
     phone_to_person = {row.phone: row for row in existing.scalars()}
+    by_name = await _persons_by_key(session)
 
     for key, name in missing.items():
-        row = phone_to_person.get(placeholder_by_key[key])
+        row = phone_to_person.get(placeholder_by_key[key]) or by_name.get(key)
         if row is None:
             row = Person(
                 phone=placeholder_by_key[key],

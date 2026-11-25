@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from sqlalchemy import BigInteger, Boolean, CheckConstraint, ForeignKey, String
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models import Base
@@ -50,6 +51,15 @@ class Person(Base, TimestampMixin):
 
     messenger: Mapped[str | None] = mapped_column(String(120), default=None)
     bank_account: Mapped[str | None] = mapped_column(String(40), default=None)
+    card_numbers: Mapped[list[str]] = mapped_column(
+        ARRAY(String(16)), nullable=False, server_default="{}", default_factory=list
+    )
+    ibans: Mapped[list[str]] = mapped_column(
+        ARRAY(String(26)), nullable=False, server_default="{}", default_factory=list
+    )
+    """شبا numbers, ``IR`` + 24 digits.  People often have several accounts."""
+    first_name: Mapped[str | None] = mapped_column(String(100), default=None)
+    last_name: Mapped[str | None] = mapped_column(String(100), default=None)
     """Account / card / شبا number as typed by the admin (optional)."""
     """Free-text — Telegram/WhatsApp/Eitaa handle, as written by admins."""
 

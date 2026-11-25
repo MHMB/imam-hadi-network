@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-import { Button, Dialog, Field, FormError, Select, TextInput } from "@/components/ui/form";
+import {
+  Button,
+  Dialog,
+  Field,
+  FormError,
+  Select,
+  TextInput,
+  Textarea,
+} from "@/components/ui/form";
 import { PLATFORMS, platformLabel } from "@/components/ui/PlatformIcon";
 import { ApiError, type Platform, type PersonDetailResponse, api } from "@/lib/api/client";
 import { messages } from "@/lib/i18n";
@@ -10,9 +18,15 @@ import { useWrite } from "@/lib/query/hooks";
 
 type Contact = { platform: Platform; handle: string; is_default: boolean };
 
+const lines = (text: string) =>
+  text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
 const realPhone = (phone: string) => (phone.startsWith("+0__") ? "" : phone);
 
-/** Profile editor: name, phone (required), bank account, contacts with one default. */
+/** Profile editor: name, phone (required), national code, bank details, contacts with one default. */
 export function EditPersonDialog({
   open,
   onClose,
@@ -26,12 +40,24 @@ export function EditPersonDialog({
   const [name, setName] = useState(p.full_name);
   const [phone, setPhone] = useState(realPhone(p.phone));
   const [bank, setBank] = useState(detail.profile.bank_account ?? "");
+  const [ids, setIds] = useState({
+    first_name: detail.profile.first_name ?? "",
+    last_name: detail.profile.last_name ?? "",
+    national_code: p.national_code ?? "",
+    card_numbers: detail.profile.card_numbers.join("\n"),
+    ibans: detail.profile.ibans.join("\n"),
+  });
   const [contacts, setContacts] = useState<Contact[]>(detail.profile.contacts);
   const save = useWrite(() =>
     api.updatePerson(p.id, {
       full_name: name,
       phone,
       bank_account: bank || null,
+      first_name: ids.first_name || null,
+      last_name: ids.last_name || null,
+      national_code: ids.national_code || null,
+      card_numbers: lines(ids.card_numbers),
+      ibans: lines(ids.ibans),
       contacts: contacts.filter((c) => c.handle.trim()),
     }),
   );
@@ -65,6 +91,48 @@ export function EditPersonDialog({
       <Field label={messages.fullName} required error={err?.fields.full_name}>
         {(a) => <TextInput {...a} value={name} onChange={(e) => setName(e.target.value)} />}
       </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {(
+          [
+            ["first_name", messages.firstName, false],
+            ["last_name", messages.lastName, false],
+            ["national_code", messages.nationalCode, true],
+          ] as const
+        ).map(([key, label, digits]) => (
+          <Field key={key} label={label} error={err?.fields[key]}>
+            {(a) => (
+              <TextInput
+                {...a}
+                dir={digits ? "ltr" : undefined}
+                inputMode={digits ? "numeric" : undefined}
+                value={ids[key]}
+                onChange={(e) => setIds((s) => ({ ...s, [key]: e.target.value }))}
+                className={digits ? "text-start" : undefined}
+              />
+            )}
+          </Field>
+        ))}
+      </div>
+      {(
+        [
+          ["card_numbers", messages.cardNumber, "6037…"],
+          ["ibans", messages.iban, "IR…"],
+        ] as const
+      ).map(([key, label, placeholder]) => (
+        <Field key={key} label={label} hint={messages.onePerLine} error={err?.fields[key]}>
+          {(a) => (
+            <Textarea
+              {...a}
+              dir="ltr"
+              rows={2}
+              placeholder={placeholder}
+              value={ids[key]}
+              onChange={(e) => setIds((s) => ({ ...s, [key]: e.target.value }))}
+              className="text-start"
+            />
+          )}
+        </Field>
+      ))}
       <Field label={messages.phone} required hint={messages.phoneHint} error={err?.fields.phone}>
         {(a) => (
           <TextInput
