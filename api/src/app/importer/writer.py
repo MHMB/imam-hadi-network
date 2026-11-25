@@ -280,7 +280,9 @@ async def _upsert_persons(
     by_name = await _persons_by_key(session)
 
     for parsed_p in parsed:
-        row = by_phone.get(parsed_p.phone_canonical) or by_name.get(resolve_key(parsed_p.full_name))
+        row = by_phone.get(parsed_p.phone_canonical)
+        if row is None and parsed_p.phone_canonical.startswith("+0__"):
+            row = by_name.get(resolve_key(parsed_p.full_name))
         if row is None:
             row = Person(
                 phone=parsed_p.phone_canonical,
@@ -336,10 +338,14 @@ async def _persons_by_key(session: AsyncSession) -> dict[str, Person]:
 
     The sheet has no phones, so a person whose real phone was set (in the app
     or from the member list) no longer matches their placeholder phone; the
-    name still does.
+    name still does.  Names shared by two people are left out (ambiguous).
     """
     rows = await session.execute(select(Person))
-    return {resolve_key(p.full_name): p for p in rows.scalars()}
+    seen: dict[str, Person | None] = {}
+    for p in rows.scalars():
+        key = resolve_key(p.full_name)
+        seen[key] = None if key in seen else p  # two people, one name: ambiguous, skip
+    return {k: p for k, p in seen.items() if p is not None}
 
 
 async def _ensure_referenced_persons(

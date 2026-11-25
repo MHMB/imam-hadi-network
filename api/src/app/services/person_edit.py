@@ -122,7 +122,10 @@ async def remember_old_name(session: AsyncSession, person: Person, old_name: str
             insert(PersonAlias)
             .values(name_key=key, name=old_name, person_id=person.id)
             .on_conflict_do_update(
-                index_elements=["name_key"], set_={"name": old_name, "person_id": person.id}
+                index_elements=["name_key"],
+                set_={"name": old_name},
+                # Never take over a name another person's alias already holds.
+                where=PersonAlias.person_id == person.id,
             )
         )
 
