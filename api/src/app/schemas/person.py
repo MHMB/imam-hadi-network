@@ -136,6 +136,10 @@ class PersonProfile(BaseModel):
     """Editable profile fields shown on the person page."""
 
     bank_account: str | None
+    card_numbers: list[str]
+    ibans: list[str]
+    first_name: str | None
+    last_name: str | None
     messenger: str | None  # legacy free text from the افراد sheet
     contacts: list[ContactRef]
 
@@ -146,6 +150,11 @@ class PersonUpdate(BaseModel):
     full_name: str | None = Field(default=None, max_length=200)
     phone: str = Field(min_length=1, max_length=32)
     bank_account: str | None = Field(default=None, max_length=40)
+    card_numbers: list[str] = Field(default_factory=list, max_length=12)
+    ibans: list[str] = Field(default_factory=list, max_length=12)
+    national_code: str | None = Field(default=None, max_length=20)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     contacts: list[ContactRef] = Field(default_factory=list, max_length=12)
 
 

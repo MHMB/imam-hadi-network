@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import FieldError
+from app.importer.names import resolve_key
 from app.importer.phone import canonicalize
-from app.models import AppUser, Person, PersonContact
+from app.models import AppUser, Person, PersonAlias, PersonContact
 from app.schemas.person import ContactRef, PersonProfile, PersonUpdate
 from app.services.audit import record, snapshot
 
@@ -28,6 +31,10 @@ async def get_profile(session: AsyncSession, person: Person) -> PersonProfile:
     ).scalars()
     return PersonProfile(
         bank_account=person.bank_account,
+        card_numbers=person.card_numbers,
+        ibans=person.ibans,
+        first_name=person.first_name,
+        last_name=person.last_name,
         messenger=person.messenger,
         contacts=[
             ContactRef(platform=c.platform, handle=c.handle, is_default=c.is_default)
@@ -49,6 +56,78 @@ def _bank(value: str | None) -> str | None:
             "bank_account", "شماره حساب، کارت یا شبا معتبر نیست (فقط رقم، ۸ تا ۲۶ رقم)."
         )
     return folded
+
+
+def _digits(value: str) -> str:
+    return re.sub(r"[\s\-]", "", value.translate(_PERSIAN_DIGITS)).upper()
+
+
+def _each(clean: Callable[[str], str | None], values: list[str]) -> list[str]:
+    out: list[str] = []
+    for v in values:
+        if (c := clean(v)) and c not in out:
+            out.append(c)
+    return out
+
+
+def clean_card(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    card = _digits(value)
+    if not re.fullmatch(r"\d{16}", card):
+        raise FieldError("card_numbers", "شماره کارت باید ۱۶ رقم باشد.")
+    return card
+
+
+def clean_iban(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    iban = _digits(value)
+    iban = iban if iban.startswith("IR") else f"IR{iban}"
+    if not re.fullmatch(r"IR\d{24}", iban):
+        raise FieldError("ibans", "شماره شبا باید IR و ۲۴ رقم باشد.")
+    return iban
+
+
+def clean_national_code(value: str | None) -> str | None:
+    """10 digits; Excel drops leading zeros, so 8–9 digit codes are zero-padded."""
+    if value is None or not value.strip():
+        return None
+    code = _digits(value)
+    if re.fullmatch(r"\d{8,9}", code):
+        code = code.zfill(10)
+    if not re.fullmatch(r"\d{10}", code):
+        raise FieldError("national_code", "کد ملی باید ۱۰ رقم باشد.")
+    return code
+
+
+async def national_code_owner(
+    session: AsyncSession, code: str, person_id: int | None
+) -> str | None:
+    """Name of another person already holding this national code, if any."""
+    return (
+        await session.execute(
+            select(Person.full_name).where(
+                Person.national_code == code, Person.id != (person_id or 0)
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def remember_old_name(session: AsyncSession, person: Person, old_name: str) -> None:
+    """After a rename, keep the old spelling mapped here so Excel imports still find them."""
+    key = resolve_key(old_name)
+    if key and key != resolve_key(person.full_name):
+        await session.execute(
+            insert(PersonAlias)
+            .values(name_key=key, name=old_name, person_id=person.id)
+            .on_conflict_do_update(
+                index_elements=["name_key"],
+                set_={"name": old_name},
+                # Never take over a name another person's alias already holds.
+                where=PersonAlias.person_id == person.id,
+            )
+        )
 
 
 def _valid_phone(raw: str) -> tuple[str, str]:
@@ -102,12 +181,24 @@ async def update_person(
         name = body.full_name.strip()
         if not name:
             raise FieldError("full_name", "نام نمی‌تواند خالی باشد.")
-        person.full_name = name
+        old_name, person.full_name = person.full_name, name
+        await remember_old_name(session, person, old_name)
 
     person.phone, person.phone_raw = _valid_phone(body.phone)
     await _phone_free(session, person.phone, person.id)
 
     person.bank_account = _bank(body.bank_account)
+    person.card_numbers = _each(clean_card, body.card_numbers)
+    person.ibans = _each(clean_iban, body.ibans)
+    person.first_name = (body.first_name or "").strip() or None
+    person.last_name = (body.last_name or "").strip() or None
+    person.national_code = clean_national_code(body.national_code)
+    if person.national_code and (
+        owner := await national_code_owner(session, person.national_code, person.id)
+    ):
+        raise FieldError(
+            "national_code", f"این کد ملی قبلاً برای «{owner}» ثبت شده است.", code="duplicate"
+        )
 
     contacts = [c for c in body.contacts if c.handle.strip()]
     if sum(c.is_default for c in contacts) > 1:

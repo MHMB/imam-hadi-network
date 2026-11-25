@@ -4237,6 +4237,42 @@
             ],
             "title": "Bank Account"
           },
+          "card_numbers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Card Numbers"
+          },
+          "ibans": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ibans"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
           "messenger": {
             "anyOf": [
               {
@@ -4259,6 +4295,10 @@
         "type": "object",
         "required": [
           "bank_account",
+          "card_numbers",
+          "ibans",
+          "first_name",
+          "last_name",
           "messenger",
           "contacts"
         ],
@@ -4320,6 +4360,58 @@
               }
             ],
             "title": "Bank Account"
+          },
+          "card_numbers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Card Numbers"
+          },
+          "ibans": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Ibans"
+          },
+          "national_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "National Code"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
           },
           "contacts": {
             "items": {

@@ -38,6 +38,13 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
   if (isError || !data) return <ErrorState />;
 
   const { person, profile, guarantors, guarantees, brokered, by_year, upcoming, overdue } = data;
+  const bankDetails = (
+    [
+      ...profile.card_numbers.map((c) => [messages.cardNumber, c]),
+      ...profile.ibans.map((c) => [messages.iban, c]),
+      [messages.bankAccount, profile.bank_account],
+    ] as [string, string | null][]
+  ).filter((d): d is [string, string] => Boolean(d[1]));
 
   const borrowedTotal = Number(person.total_borrowed);
   const debtRemaining = Number(person.outstanding_debt);
@@ -63,7 +70,7 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
             {messages.editProfile}
           </Button>
         </div>
-        {(profile.contacts.length > 0 || profile.bank_account) && (
+        {(profile.contacts.length > 0 || bankDetails.length > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-700">
             {profile.contacts.map((c) => (
               <span key={`${c.platform}-${c.handle}`} className="inline-flex items-center gap-1.5">
@@ -76,14 +83,14 @@ export default function PersonDetailPage({ params }: { params: Promise<{ id: str
                 )}
               </span>
             ))}
-            {profile.bank_account && (
-              <span>
-                {messages.bankAccount}:{" "}
+            {bankDetails.map(([label, value]) => (
+              <span key={`${label}-${value}`}>
+                {label}:{" "}
                 <span dir="ltr" className="font-medium">
-                  {toPersianDigits(profile.bank_account)}
+                  {toPersianDigits(value)}
                 </span>
               </span>
-            )}
+            ))}
           </div>
         )}
         {(displayPhone(person.phone) || person.national_code) && (
